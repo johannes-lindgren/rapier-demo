@@ -5,19 +5,11 @@ import {
   ColliderDesc,
   EventQueue,
   RigidBodyDesc,
-  RigidBodyType,
   Vector,
   Vector2,
 } from '@dimforge/rapier2d'
 import * as PIXI from 'pixi.js'
-import {
-  Container,
-  Geometry,
-  GpuProgram,
-  MIPMAP_MODES,
-  Shader,
-  State,
-} from 'pixi.js'
+import { Container, MIPMAP_MODES } from 'pixi.js'
 import { BoxGameObject, GameObject } from './gameObject.ts'
 import regularVertex from './regular.vert?raw'
 import colorFrag from './color.frag?raw'
@@ -41,11 +33,14 @@ let world = new Rapier.World(gravity)
 
 // Create a dynamic rigid-body.
 let playerBody = world.createRigidBody(
-  RigidBodyDesc.dynamic().setTranslation(0.0, 5.0),
+  RigidBodyDesc.dynamic().setTranslation(0.0, 5.0).setLinearDamping(0.2),
 )
 
 // Create a ball collider attached to the dynamic rigidBody.
-let playerCollider = world.createCollider(ColliderDesc.ball(0.5), playerBody)
+let playerCollider = world.createCollider(
+  ColliderDesc.ball(0.5).setFriction(0.9).setRestitution(1),
+  playerBody,
+)
 
 const app = new PIXI.Application({
   background: '#1099bb',
@@ -61,7 +56,7 @@ const handleResize = () => {
   const width = window.innerWidth
   const height = window.innerHeight
   // See 10 meters horizontally
-  const viewportWidth = 20
+  const viewportWidth = 30
   // const viewport = {
   //   width: viewportWidth,
   //   height: aspectRatio * viewportWidth,
@@ -96,24 +91,22 @@ playerSprite.width = 1
 playerSprite.height = 1
 pixiWorld.addChild(playerSprite)
 
-const rectangleGeometry = new PIXI.Geometry().addAttribute(
-  'aVertexPosition',
-  [
-    // x, y
-    -1, -1,
-    // x, y
-    1, -1,
-    // x, y
-    1, 1,
-    // x, y
-    -1, -1,
-    // x, y
-    -1, 1,
-    // x, y
-    1, 1,
-  ],
-  2,
-)
+const rectangleGeometry = new PIXI.Geometry()
+  .addAttribute(
+    'aVertexPosition',
+    [
+      // x, y
+      -1, -1,
+      // x, y
+      1, -1,
+      // x, y
+      1, 1,
+      // x, y
+      -1, 1,
+    ],
+    2,
+  )
+  .addIndex([0, 1, 2, 0, 2, 3])
 
 const rectangleUvs = [
   // u, v
@@ -123,15 +116,11 @@ const rectangleUvs = [
   // u, v
   1, 1,
   // u, v
-  0, 0,
-  // u, v
   0, 1,
-  // u, v
-  1, 1,
 ]
 
 const shader = PIXI.Shader.from(regularVertex, colorFrag, {
-  uSampler2: PIXI.Texture.from('https://pixijs.com/assets/bg_scene_rotate.jpg'),
+  uSampler2: PIXI.Texture.from('https://pixijs.com/assets/perlin.jpg'),
   time: new Vector2(1, 1),
 })
 
@@ -157,15 +146,6 @@ const createBox = (
   triangle.position.set(position.x, position.y)
   triangle.width = 1
   triangle.height = 1
-
-  // for (let i = 0; i < triangle.uvs.length; i += 3 * 2) {
-  //   triangle.uvs[i + 0] *= textureCoordinates.x
-  //   triangle.uvs[i + 1] *= textureCoordinates.y
-  //   triangle.uvs[i + 2] *= textureCoordinates.x
-  //   triangle.uvs[i + 3] *= textureCoordinates.y
-  //   triangle.uvs[i + 4] *= textureCoordinates.x
-  //   triangle.uvs[i + 5] *= textureCoordinates.y
-  // }
 
   let sprite = new PIXI.Graphics()
   sprite.beginFill(0xff0000)
@@ -197,18 +177,21 @@ const addGameObjects = (newObjs: GameObject[]) => {
 // Generate world
 //
 
-const horizontalBoxes = 10
-const verticalBoxes = 10
+const horizontalBoxes = 30
+const verticalBoxes = 30
 
 addGameObjects(
   zeros(horizontalBoxes).flatMap((_, column) =>
     zeros(verticalBoxes).map((_, row) =>
-      createBox(new Vector2(column - horizontalBoxes / 2, -row), {
-        u: column / horizontalBoxes,
-        v: row / verticalBoxes,
-        uw: 1 / horizontalBoxes,
-        vw: 1 / verticalBoxes,
-      }),
+      createBox(
+        new Vector2(column - horizontalBoxes / 2, row - verticalBoxes),
+        {
+          u: column / horizontalBoxes,
+          v: row / verticalBoxes,
+          uw: 1 / horizontalBoxes,
+          vw: 1 / verticalBoxes,
+        },
+      ),
     ),
   ),
 )
@@ -249,8 +232,9 @@ app.ticker.add(() => {
   // creates frame-independent transformation
   playerSprite.position.x = playerPosition.x
   playerSprite.position.y = playerPosition.y
+  playerSprite.rotation = playerCollider.rotation()
 
-  // console.log(position.x)
+  pixiWorld.position.set(-playerPosition.x, -playerPosition.y)
 })
 
 window.addEventListener('keydown', (event) => {
