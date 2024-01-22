@@ -5,9 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "build:wasm": "wasm-pack build",
     "build": "vite build",
     "preview": "vite preview"
   },
+  "workspaces": ["wasm-lib/pkg"],
   "dependencies": {
     "@dimforge/rapier2d": "^0.11.2",
     "pixi.js": "7.3.3",

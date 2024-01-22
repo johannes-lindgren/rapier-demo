@@ -16,6 +16,7 @@ import colorFrag from './color.frag?raw'
 import { zeros } from './zeros.ts'
 import { createWhiteNoiseTexture } from './createWhiteNoiseTexture.ts'
 import { createPerlinNoiseTexture } from './createPerlinNoise.ts'
+import { greet } from 'wasm-lib'
 
 // const game = createGame()
 
@@ -126,6 +127,8 @@ const perlinNoiseTexture = createPerlinNoiseTexture(
   },
   whiteNoiseTexture,
 )
+
+// console.log(app.renderer.extract.pixels(perlinNoiseTexture))
 
 const shader = PIXI.Shader.from(regularVertex, colorFrag, {
   // uSampler2: PIXI.Texture.from('https://pixijs.com/assets/perlin.jpg'),
@@ -265,7 +268,8 @@ window.addEventListener('keydown', (event) => {
       break
     }
     case 'KeyG': {
-      console.log('world snapshot', world.takeSnapshot())
+      console.log('from rust:', greet('Hello'))
+      // init().then(() => wasm.greet('Hello'))
       break
     }
   }
