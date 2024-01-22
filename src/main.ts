@@ -14,6 +14,8 @@ import { BoxGameObject, GameObject } from './gameObject.ts'
 import regularVertex from './regular.vert?raw'
 import colorFrag from './color.frag?raw'
 import { zeros } from './zeros.ts'
+import { createWhiteNoiseTexture } from './createWhiteNoiseTexture.ts'
+import { createPerlinNoiseTexture } from './createPerlinNoise.ts'
 
 // const game = createGame()
 
@@ -57,14 +59,6 @@ const handleResize = () => {
   const height = window.innerHeight
   // See 10 meters horizontally
   const viewportWidth = 30
-  // const viewport = {
-  //   width: viewportWidth,
-  //   height: aspectRatio * viewportWidth,
-  // }
-  // Put the world into center of screen.
-  // viewport.x = app.renderer.screen.width / 2
-  // viewport.y = app.renderer.screen.height / 2
-  // Show 10 world units on screen.
 
   const scale = width / viewportWidth
   viewport.scale.set(scale, -scale)
@@ -119,9 +113,24 @@ const rectangleUvs = [
   0, 1,
 ]
 
+const whiteNoiseTexture = createWhiteNoiseTexture(app.renderer, {
+  width: 1024,
+  height: 1024,
+})
+
+const perlinNoiseTexture = createPerlinNoiseTexture(
+  app.renderer,
+  {
+    width: 1024,
+    height: 1024,
+  },
+  whiteNoiseTexture,
+)
+
 const shader = PIXI.Shader.from(regularVertex, colorFrag, {
-  uSampler2: PIXI.Texture.from('https://pixijs.com/assets/perlin.jpg'),
-  time: new Vector2(1, 1),
+  // uSampler2: PIXI.Texture.from('https://pixijs.com/assets/perlin.jpg'),
+  uSampler2: perlinNoiseTexture,
+  time: 0,
 })
 
 const createBox = (
@@ -142,10 +151,10 @@ const createBox = (
         v + coord * vw
   const uvs = rectangleUvs.map(transformCoordinate)
   const geometry = rectangleGeometry.clone().addAttribute('aUvs', uvs, 2)
-  const triangle = new PIXI.Mesh(geometry, shader)
-  triangle.position.set(position.x, position.y)
-  triangle.width = 1
-  triangle.height = 1
+  const rectangle = new PIXI.Mesh(geometry, shader)
+  rectangle.position.set(position.x, position.y)
+  rectangle.width = 1
+  rectangle.height = 1
 
   let sprite = new PIXI.Graphics()
   sprite.beginFill(0xff0000)
@@ -153,7 +162,7 @@ const createBox = (
 
   return {
     tag: 'box',
-    sprite: triangle,
+    sprite: rectangle,
     rigidBodyDesc: RigidBodyDesc.fixed().setTranslation(position.x, position.y),
     colliderDes: ColliderDesc.cuboid(0.5 * boxSize, 0.5 * boxSize)
       .setActiveEvents(ActiveEvents.CONTACT_FORCE_EVENTS)

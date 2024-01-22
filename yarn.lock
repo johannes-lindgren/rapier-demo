@@ -221,7 +221,7 @@
   resolved "https://registry.yarnpkg.com/@pixi/filter-fxaa/-/filter-fxaa-7.3.3.tgz#3df0bf436dc5d0ac4612be03912d899826e06264"
   integrity sha512-xq5xcpu68axMrGsVOcpxqebLAa+B4yBSLQlI2rsn7s8YtWY+pC20lsaNnKDlrv9hwJ1Ah7BtBZy0EVVaeFNYqA==
 
-"@pixi/filter-noise@7.3.3":
+"@pixi/filter-noise@7.3.3", "@pixi/filter-noise@^7.3.3":
   version "7.3.3"
   resolved "https://registry.yarnpkg.com/@pixi/filter-noise/-/filter-noise-7.3.3.tgz#8629625212a03fc84145f7951e71322940fad56a"
   integrity sha512-Hwwk1xLvA+0wTqJtKTnIGzyZmLubm5ylgqsMRHQqujDtVSIqE2SY1iVUcGA5vv31C7rFFkxGT4yhtfnYBNCvKQ==
