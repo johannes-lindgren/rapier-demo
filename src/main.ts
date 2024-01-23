@@ -9,7 +9,7 @@ import {
   Vector2,
 } from '@dimforge/rapier2d'
 import * as PIXI from 'pixi.js'
-import { Container, MIPMAP_MODES } from 'pixi.js'
+import { Container, LINE_JOIN, MIPMAP_MODES } from 'pixi.js'
 import { BoxGameObject, GameObject } from './gameObject.ts'
 import regularVertex from './regular.vert?raw'
 import colorFrag from './color.frag?raw'
@@ -17,8 +17,8 @@ import { zeros } from './zeros.ts'
 import { createWhiteNoiseTexture } from './createWhiteNoiseTexture.ts'
 import { createPerlinNoiseTexture } from './createPerlinNoise.ts'
 import { greet } from 'wasm-lib'
-
-// const game = createGame()
+import { triangulate } from './triangulate.ts'
+import { getRandomColor } from './randomColor.ts'
 
 //
 // Rapier
@@ -207,6 +207,63 @@ addGameObjects(
     ),
   ),
 )
+
+const drawShape = (points: number[]) => {
+  let line = new PIXI.Graphics()
+  line.lineStyle({
+    width: 0.1,
+    color: 0xff0000,
+  })
+  line.moveTo(points[0], points[1])
+  for (let i = 2; i < points.length; i += 2) {
+    line.lineTo(points[i], points[i + 1])
+  }
+  line.lineTo(points[0], points[1])
+  pixiWorld.addChild(line)
+}
+
+const pointList = [
+  // x, y
+  -2, -2,
+  // x, y
+  2, -2,
+  // x, y
+  3, 2,
+  // x, y
+  3, 4,
+  // x, y
+  -2, 2,
+]
+const holeList = pointList.map((it) => it / 2)
+
+// Draw triangles
+const triangles = await triangulate({ pointList, holeList })
+console.log(triangles)
+for (let i = 0; i < triangles.indices.length; i += 3) {
+  const i1 = i
+  const i2 = i + 1
+  const i3 = i + 2
+  const t = new PIXI.Graphics()
+  t.beginFill(getRandomColor())
+  t.moveTo(
+    triangles.pointlist[2 * triangles.indices[i1]],
+    triangles.pointlist[2 * triangles.indices[i1] + 1],
+  )
+  t.lineTo(
+    triangles.pointlist[2 * triangles.indices[i2]],
+    triangles.pointlist[2 * triangles.indices[i2] + 1],
+  )
+  t.lineTo(
+    triangles.pointlist[2 * triangles.indices[i3]],
+    triangles.pointlist[2 * triangles.indices[i3] + 1],
+  )
+  t.closePath()
+  t.endFill()
+  pixiWorld.addChild(t)
+}
+
+drawShape(pointList)
+drawShape(holeList)
 
 // Listen for animate update
 app.ticker.add(() => {

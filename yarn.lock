@@ -748,6 +748,11 @@ source-map-js@^1.0.2:
   resolved "https://registry.yarnpkg.com/source-map-js/-/source-map-js-1.0.2.tgz#adbc361d9c62df380125e7f161f71c826f1e490c"
   integrity sha512-R0XvVJ9WusLiqTCEiGCmICCMplcCkIwwR11mOSD9CR5u+IXYdiseeEuXCVAjS54zqwkLcPNnmU4OeJ6tUrWhDw==
 
+triangle-wasm@^1.0.0:
+  version "1.0.0"
+  resolved "https://registry.yarnpkg.com/triangle-wasm/-/triangle-wasm-1.0.0.tgz#5bd2dd4195c4843adfb48840f1afbeb163445620"
+  integrity sha512-W5CRc6a7rtVBgpB2033H2FETOOPburRprXKuZOFbGel6lagV4+GwBGRJHX3IOX6SBGRus90AtbAZXlvsRLAj2w==
+
 typescript@^5.2.2:
   version "5.3.3"
   resolved "https://registry.yarnpkg.com/typescript/-/typescript-5.3.3.tgz#b3ce6ba258e72e6305ba66f5c9b452aaee3ffe37"
