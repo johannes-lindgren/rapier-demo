@@ -208,37 +208,87 @@ addGameObjects(
   ),
 )
 
-const drawShape = (points: number[]) => {
+const lineWidth = 0.1
+const drawSegments = (
+  vertices: [number, number][],
+  segments: [number, number][],
+) => {
+  let line = new PIXI.Graphics()
+  line.lineStyle({
+    width: lineWidth,
+    color: 0xff0000,
+  })
+  for (let i = 0; i < segments.length; i++) {
+    const startVertex = segments[i][0]
+    const endVertex = segments[i][1]
+    line.moveTo(vertices[startVertex][0], vertices[startVertex][1])
+    line.lineTo(vertices[endVertex][0], vertices[endVertex][1])
+  }
+  pixiWorld.addChild(line)
+}
+
+const drawPoints = (holes: [number, number][]) => {
+  let graphics = new PIXI.Graphics()
+  graphics.beginFill(0xff0000)
+  for (let i = 0; i < holes.length; i++) {
+    graphics.drawCircle(holes[i][0], holes[i][1], lineWidth)
+  }
+  graphics.endFill()
+  pixiWorld.addChild(graphics)
+}
+
+const drawShape = (vertices: [number, number][]) => {
   let line = new PIXI.Graphics()
   line.lineStyle({
     width: 0.1,
     color: 0xff0000,
   })
-  line.moveTo(points[0], points[1])
-  for (let i = 2; i < points.length; i += 2) {
-    line.lineTo(points[i], points[i + 1])
+  line.moveTo(vertices[0][0], vertices[0][1])
+  for (let i = 1; i < vertices.length; i++) {
+    line.lineTo(vertices[i][0], vertices[i][1])
   }
-  line.lineTo(points[0], points[1])
+  line.lineTo(vertices[0][0], vertices[0][1])
   pixiWorld.addChild(line)
 }
 
-const pointList = [
+// outer
+const outerVertices = [
   // x, y
-  -2, -2,
+  [-2, -2],
   // x, y
-  2, -2,
+  [2, -2],
   // x, y
-  3, 2,
+  [10, 2],
   // x, y
-  3, 4,
+  [3, 3],
   // x, y
-  -2, 2,
+  [-2, 5],
 ]
-const holeList = pointList.map((it) => it / 2)
+// inner
+const innerVertices = [
+  [-1, -0.5],
+  [0, 0.5],
+  [1, -0.5],
+]
+const vertices = [...outerVertices, ...innerVertices]
+const segments = [
+  [0, 1],
+  [1, 2],
+  [2, 3],
+  [3, 4],
+  [4, 0],
+  [5, 6],
+  [6, 7],
+  [7, 5],
+]
+const holes = [[0, 0]]
 
 // Draw triangles
-const triangles = await triangulate({ pointList, holeList })
-console.log(triangles)
+const triangles = await triangulate({
+  vertices,
+  segments,
+  holes,
+})
 for (let i = 0; i < triangles.indices.length; i += 3) {
   const i1 = i
   const i2 = i + 1
@@ -262,8 +312,10 @@ for (let i = 0; i < triangles.indices.length; i += 3) {
   pixiWorld.addChild(t)
 }
 
-drawShape(pointList)
-drawShape(holeList)
+// drawShape(pointList)
+// drawShape(holeList)
+drawSegments(vertices, segments)
+drawPoints(holes)
 
 // Listen for animate update
 app.ticker.add(() => {

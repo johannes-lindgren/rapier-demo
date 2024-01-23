@@ -1,13 +1,15 @@
 import Triangle from 'triangle-wasm'
 
 export const triangulate = async (options: {
-  pointList: number[]
-  holeList?: number[]
+  vertices: [number, number][]
+  segments: [number, number][]
+  holes: [number, number][]
 }) => {
   await Triangle.init('/triangle.out.wasm')
   const data = {
-    pointlist: options.pointList,
-    holelist: options.holeList,
+    pointlist: options.vertices.flat(),
+    segmentlist: options.segments.flat(),
+    holelist: options.holes.flat(),
   }
 
   // Triangulation
@@ -15,7 +17,14 @@ export const triangulate = async (options: {
   const output = Triangle.makeIO()
 
   Triangle.triangulate(
-    { pslg: false, quality: true, holes: true },
+    {
+      pslg: false,
+      quality: true,
+      holes: true,
+      ccdt: true,
+      convexHull: false,
+      area: 1.0,
+    },
     input,
     output,
   )
