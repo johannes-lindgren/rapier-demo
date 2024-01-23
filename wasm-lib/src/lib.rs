@@ -17,5 +17,5 @@ pub fn greet(name: &str) -> String {
     ];
 
 
-    format!("Path: {}", bits_to_paths(bits, true))
+    format!("{}", bits_to_paths(bits, true))
 }

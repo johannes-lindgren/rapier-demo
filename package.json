@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "test": "vitest",
     "build:wasm": "wasm-pack build",
     "build": "vite build",
     "preview": "vite preview"
@@ -19,6 +20,7 @@
     "parse-svg-path": "^0.1.2"
   },
   "devDependencies": {
+    "vitest": "^1.2.1",
     "prettier": "3.2.2",
     "typescript": "^5.2.2",
     "vite": "^5.0.8",

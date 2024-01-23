@@ -4,17 +4,19 @@ import { chunk, transform } from 'lodash'
 export type Vec2 = [number, number]
 export type Vec3 = [number, number, number]
 
-export const triangulate = async (options: {
+export type Shape = {
   vertices: Vec2[]
   segments: Vec2[]
   holes: Vec2[]
-}) => {
+}
+
+export const triangulate = async (shape: Shape) => {
   await Triangle.init('/triangle.out.wasm')
 
   const data = {
-    pointlist: options.vertices.flat(),
-    segmentlist: options.segments.flat(),
-    holelist: options.holes.flat(),
+    pointlist: shape.vertices.flat(),
+    segmentlist: shape.segments.flat(),
+    holelist: shape.holes.flat(),
   }
 
   // Triangulation

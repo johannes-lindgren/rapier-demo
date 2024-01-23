@@ -14,12 +14,13 @@ import { Container, LINE_JOIN, MIPMAP_MODES } from 'pixi.js'
 import { BoxGameObject, GameObject, TriangleGameObject } from './gameObject.ts'
 import regularVertex from './regular.vert?raw'
 import colorFrag from './color.frag?raw'
-import { zeros } from './zeros.ts'
+import { zeros } from './array-utils.ts'
 import { createWhiteNoiseTexture } from './createWhiteNoiseTexture.ts'
 import { createPerlinNoiseTexture } from './createPerlinNoise.ts'
-import { triangulate, Vec2, Vec3 } from './triangulate.ts'
+import { Shape, triangulate, Vec2, Vec3 } from './triangulate.ts'
 import { getRandomColor } from './randomColor.ts'
 import { contour } from './contour.ts'
+import { linspace } from './array-utils.ts'
 
 //
 // Rapier
@@ -248,11 +249,12 @@ const lineWidth = 0.1
 const drawSegments = (
   vertices: [number, number][],
   segments: [number, number][],
+  color: number,
 ) => {
   let line = new PIXI.Graphics()
   line.lineStyle({
     width: lineWidth,
-    color: 0xff0000,
+    color,
   })
   for (let i = 0; i < segments.length; i++) {
     const startVertex = segments[i][0]
@@ -274,7 +276,7 @@ const drawPoints = (holes: [number, number][]) => {
 }
 
 // outer
-const outerVertices = [
+const outerVertices: Vec2[] = [
   // x, y
   [-2, -2],
   // x, y
@@ -287,7 +289,7 @@ const outerVertices = [
   [-2, 5],
 ]
 // inner
-const innerVertices = [
+const innerVertices: Vec2[] = [
   [-1, -0.5],
   [0, 0.5],
   [1, -0.5],
@@ -295,7 +297,7 @@ const innerVertices = [
 
 const translateMesh = (pos: Vec2): Vec2 => [pos[0] + 10, pos[1]]
 const vertices = [...outerVertices, ...innerVertices].map(translateMesh)
-const segments = [
+const segments: Vec2[] = [
   [4, 0],
   [0, 1],
   [1, 2],
@@ -307,12 +309,14 @@ const segments = [
 ]
 const holes = [[0, -0.1]].map(translateMesh)
 
-// Draw triangles
-const triangles = await triangulate({
+const debugShape: Shape = {
   vertices,
   segments,
   holes,
-})
+}
+
+// Draw triangles
+const triangles = await triangulate(debugShape)
 const drawTriangles = (vertices: Vec2[], indices: Vec3[]) => {
   for (let i = 0; i < indices.length - 1; i++) {
     const vertexIndices = indices[i]
@@ -324,8 +328,21 @@ const drawTriangles = (vertices: Vec2[], indices: Vec3[]) => {
   }
 }
 drawTriangles(triangles.vertices, triangles.indices)
-drawSegments(vertices, segments)
+drawSegments(vertices, segments, 0xff0000)
 drawPoints(holes)
+
+const paths = contour()
+paths.forEach((vertices, index) => {
+  const segments = [
+    ...linspace(0, vertices.length - 2, vertices.length - 1).map((i) => [
+      i,
+      i + 1,
+    ]),
+    [vertices.length - 1, 0],
+  ]
+  console.log(vertices, segments)
+  drawSegments(vertices, segments, index % 2 === 0 ? 0xff0000 : 0x00ff00)
+})
 
 addGameObjects(
   triangles.indices.map(([i1, i2, i3]) =>
@@ -336,8 +353,6 @@ addGameObjects(
     ]),
   ),
 )
-
-contour()
 
 // Listen for animate update
 app.ticker.add(() => {
