@@ -272,16 +272,16 @@ const innerVertices = [
 ]
 const vertices = [...outerVertices, ...innerVertices]
 const segments = [
+  [4, 0],
   [0, 1],
   [1, 2],
   [2, 3],
   [3, 4],
-  [4, 0],
+  [7, 5],
   [5, 6],
   [6, 7],
-  [7, 5],
 ]
-const holes = [[0, 0]]
+const holes = [[0, -0.1]]
 
 // Draw triangles
 const triangles = await triangulate({

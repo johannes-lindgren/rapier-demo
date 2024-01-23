@@ -6,6 +6,10 @@ export const triangulate = async (options: {
   holes: [number, number][]
 }) => {
   await Triangle.init('/triangle.out.wasm')
+
+  console.log('verts', options.vertices.length)
+  console.log('segments', options.segments.length)
+  console.log('holes', options.holes.length)
   const data = {
     pointlist: options.vertices.flat(),
     segmentlist: options.segments.flat(),
@@ -18,12 +22,11 @@ export const triangulate = async (options: {
 
   Triangle.triangulate(
     {
-      pslg: false,
-      quality: true,
+      quality: 10,
       holes: true,
-      ccdt: true,
+      ccdt: false,
       convexHull: false,
-      area: 1.0,
+      area: 0.2,
     },
     input,
     output,
