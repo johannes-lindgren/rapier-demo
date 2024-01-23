@@ -11,9 +11,6 @@ export const triangulate = async (options: {
 }) => {
   await Triangle.init('/triangle.out.wasm')
 
-  console.log('verts', options.vertices.length)
-  console.log('segments', options.segments.length)
-  console.log('holes', options.holes.length)
   const data = {
     pointlist: options.vertices.flat(),
     segmentlist: options.segments.flat(),
@@ -42,7 +39,6 @@ export const triangulate = async (options: {
     vertices: chunk(Array.from(output.pointlist), 2) as Vec2[],
     indices: chunk(Array.from(output.trianglelist), 3) as Vec3[],
   }
-  console.log('t', Array.from(output.trianglelist).length)
 
   Triangle.freeIO(input, true)
   Triangle.freeIO(output)

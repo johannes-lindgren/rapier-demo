@@ -15,7 +15,8 @@
     "@dimforge/rapier2d": "^0.11.2",
     "pixi.js": "7.3.3",
     "@pixi/filter-noise": "^7.3.3",
-    "lodash": "^4.17.21"
+    "lodash": "^4.17.21",
+    "parse-svg-path": "^0.1.2"
   },
   "devDependencies": {
     "prettier": "3.2.2",

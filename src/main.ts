@@ -17,9 +17,9 @@ import colorFrag from './color.frag?raw'
 import { zeros } from './zeros.ts'
 import { createWhiteNoiseTexture } from './createWhiteNoiseTexture.ts'
 import { createPerlinNoiseTexture } from './createPerlinNoise.ts'
-import { greet } from 'wasm-lib'
 import { triangulate, Vec2, Vec3 } from './triangulate.ts'
 import { getRandomColor } from './randomColor.ts'
+import { contour } from './contour.ts'
 
 //
 // Rapier
@@ -323,7 +323,6 @@ const drawTriangles = (vertices: Vec2[], indices: Vec3[]) => {
     pixiWorld.addChild(triangleGeometry([vert1, vert2, vert3], 0.2))
   }
 }
-
 drawTriangles(triangles.vertices, triangles.indices)
 drawSegments(vertices, segments)
 drawPoints(holes)
@@ -337,6 +336,8 @@ addGameObjects(
     ]),
   ),
 )
+
+contour()
 
 // Listen for animate update
 app.ticker.add(() => {
@@ -395,11 +396,6 @@ window.addEventListener('keydown', (event) => {
     }
     case 'KeyD': {
       playerBody.applyImpulse({ x: 2.0, y: 0.0 }, true)
-      break
-    }
-    case 'KeyG': {
-      console.log('from rust:', greet('Hello'))
-      // init().then(() => wasm.greet('Hello'))
       break
     }
   }
