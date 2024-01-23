@@ -1,9 +1,13 @@
 import Triangle from 'triangle-wasm'
+import { chunk, transform } from 'lodash'
+
+export type Vec2 = [number, number]
+export type Vec3 = [number, number, number]
 
 export const triangulate = async (options: {
-  vertices: [number, number][]
-  segments: [number, number][]
-  holes: [number, number][]
+  vertices: Vec2[]
+  segments: Vec2[]
+  holes: Vec2[]
 }) => {
   await Triangle.init('/triangle.out.wasm')
 
@@ -35,9 +39,10 @@ export const triangulate = async (options: {
   // draw output
   // ...
   const triangles = {
-    indices: Array.from(output.trianglelist) as number[],
-    pointlist: Array.from(output.pointlist) as number[],
+    vertices: chunk(Array.from(output.pointlist), 2) as Vec2[],
+    indices: chunk(Array.from(output.trianglelist), 3) as Vec3[],
   }
+  console.log('t', Array.from(output.trianglelist).length)
 
   Triangle.freeIO(input, true)
   Triangle.freeIO(output)

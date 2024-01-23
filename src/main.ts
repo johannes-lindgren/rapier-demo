@@ -5,19 +5,20 @@ import {
   ColliderDesc,
   EventQueue,
   RigidBodyDesc,
+  RigidBodyType,
   Vector,
   Vector2,
 } from '@dimforge/rapier2d'
 import * as PIXI from 'pixi.js'
 import { Container, LINE_JOIN, MIPMAP_MODES } from 'pixi.js'
-import { BoxGameObject, GameObject } from './gameObject.ts'
+import { BoxGameObject, GameObject, TriangleGameObject } from './gameObject.ts'
 import regularVertex from './regular.vert?raw'
 import colorFrag from './color.frag?raw'
 import { zeros } from './zeros.ts'
 import { createWhiteNoiseTexture } from './createWhiteNoiseTexture.ts'
 import { createPerlinNoiseTexture } from './createPerlinNoise.ts'
 import { greet } from 'wasm-lib'
-import { triangulate } from './triangulate.ts'
+import { triangulate, Vec2, Vec3 } from './triangulate.ts'
 import { getRandomColor } from './randomColor.ts'
 
 //
@@ -167,10 +168,45 @@ const createBox = (
     tag: 'box',
     sprite: rectangle,
     rigidBodyDesc: RigidBodyDesc.fixed().setTranslation(position.x, position.y),
-    colliderDes: ColliderDesc.cuboid(0.5 * boxSize, 0.5 * boxSize)
+    colliderDesc: ColliderDesc.cuboid(0.5 * boxSize, 0.5 * boxSize)
       .setActiveEvents(ActiveEvents.CONTACT_FORCE_EVENTS)
-      .setContactForceEventThreshold(0),
+      .setContactForceEventThreshold(100000),
   }
+}
+
+const createTriangle = (vertices: [Vec2, Vec2, Vec2]): TriangleGameObject => {
+  const position = new Vector2(0, 0)
+
+  const colliderDesc = ColliderDesc.convexPolyline(
+    new Float32Array(vertices.flat()),
+  )
+    ?.setActiveEvents(ActiveEvents.CONTACT_FORCE_EVENTS)
+    ?.setContactForceEventThreshold(40)
+
+  if (!colliderDesc) {
+    throw new Error(
+      `Failed to instantiate collider description with verices: ${JSON.stringify(vertices)}`,
+    )
+  }
+
+  return {
+    tag: 'triangle',
+    sprite: triangleGeometry(vertices, 1),
+    rigidBodyDesc: RigidBodyDesc.fixed().setTranslation(position.x, position.y),
+    colliderDesc: colliderDesc,
+  }
+}
+
+const triangleGeometry = (vertices: [Vec2, Vec2, Vec2], alpha: number) => {
+  const g = new PIXI.Graphics()
+  g.alpha = alpha
+  g.beginFill(getRandomColor())
+  g.moveTo(...vertices[0])
+  g.lineTo(...vertices[1])
+  g.lineTo(...vertices[2])
+  g.closePath()
+  g.endFill()
+  return g
 }
 
 let gameObjects = [] as GameObject[]
@@ -181,7 +217,7 @@ const addGameObjects = (newObjs: GameObject[]) => {
     pixiWorld.addChild(it.sprite)
     const ridigBody = world.createRigidBody(it.rigidBodyDesc)
     it.rigidBody = ridigBody
-    it.collider = world.createCollider(it.colliderDes, ridigBody)
+    it.collider = world.createCollider(it.colliderDesc, ridigBody)
   })
 }
 
@@ -237,20 +273,6 @@ const drawPoints = (holes: [number, number][]) => {
   pixiWorld.addChild(graphics)
 }
 
-const drawShape = (vertices: [number, number][]) => {
-  let line = new PIXI.Graphics()
-  line.lineStyle({
-    width: 0.1,
-    color: 0xff0000,
-  })
-  line.moveTo(vertices[0][0], vertices[0][1])
-  for (let i = 1; i < vertices.length; i++) {
-    line.lineTo(vertices[i][0], vertices[i][1])
-  }
-  line.lineTo(vertices[0][0], vertices[0][1])
-  pixiWorld.addChild(line)
-}
-
 // outer
 const outerVertices = [
   // x, y
@@ -270,7 +292,9 @@ const innerVertices = [
   [0, 0.5],
   [1, -0.5],
 ]
-const vertices = [...outerVertices, ...innerVertices]
+
+const translateMesh = (pos: Vec2): Vec2 => [pos[0] + 10, pos[1]]
+const vertices = [...outerVertices, ...innerVertices].map(translateMesh)
 const segments = [
   [4, 0],
   [0, 1],
@@ -281,7 +305,7 @@ const segments = [
   [5, 6],
   [6, 7],
 ]
-const holes = [[0, -0.1]]
+const holes = [[0, -0.1]].map(translateMesh)
 
 // Draw triangles
 const triangles = await triangulate({
@@ -289,33 +313,30 @@ const triangles = await triangulate({
   segments,
   holes,
 })
-for (let i = 0; i < triangles.indices.length; i += 3) {
-  const i1 = i
-  const i2 = i + 1
-  const i3 = i + 2
-  const t = new PIXI.Graphics()
-  t.beginFill(getRandomColor())
-  t.moveTo(
-    triangles.pointlist[2 * triangles.indices[i1]],
-    triangles.pointlist[2 * triangles.indices[i1] + 1],
-  )
-  t.lineTo(
-    triangles.pointlist[2 * triangles.indices[i2]],
-    triangles.pointlist[2 * triangles.indices[i2] + 1],
-  )
-  t.lineTo(
-    triangles.pointlist[2 * triangles.indices[i3]],
-    triangles.pointlist[2 * triangles.indices[i3] + 1],
-  )
-  t.closePath()
-  t.endFill()
-  pixiWorld.addChild(t)
+const drawTriangles = (vertices: Vec2[], indices: Vec3[]) => {
+  for (let i = 0; i < indices.length - 1; i++) {
+    const vertexIndices = indices[i]
+    // console.log(triangle)
+    const vert1 = vertices[vertexIndices[0]]
+    const vert2 = vertices[vertexIndices[1]]
+    const vert3 = vertices[vertexIndices[2]]
+    pixiWorld.addChild(triangleGeometry([vert1, vert2, vert3], 0.2))
+  }
 }
 
-// drawShape(pointList)
-// drawShape(holeList)
+drawTriangles(triangles.vertices, triangles.indices)
 drawSegments(vertices, segments)
 drawPoints(holes)
+
+addGameObjects(
+  triangles.indices.map(([i1, i2, i3]) =>
+    createTriangle([
+      triangles.vertices[i1],
+      triangles.vertices[i2],
+      triangles.vertices[i3],
+    ]),
+  ),
+)
 
 // Listen for animate update
 app.ticker.add(() => {
@@ -330,7 +351,7 @@ app.ticker.add(() => {
       return
     }
 
-    // gameObject.rigidBody.setBodyType(RigidBodyType.Dynamic, true)
+    gameObject.rigidBody.setBodyType(RigidBodyType.Dynamic, true)
   }
   eventQueue.drainContactForceEvents((event) => {
     handleCollision(event.collider1(), event.totalForceMagnitude())

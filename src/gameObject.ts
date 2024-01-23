@@ -9,10 +9,19 @@ import {
 export type BoxGameObject = {
   tag: 'box'
   sprite: DisplayObject
-  colliderDes: ColliderDesc
+  colliderDesc: ColliderDesc
   rigidBodyDesc: RigidBodyDesc
   rigidBody: RigidBody
   collider: Collider
 }
 
-export type GameObject = BoxGameObject
+export type TriangleGameObject = {
+  tag: 'triangle'
+  sprite: DisplayObject
+  colliderDesc: ColliderDesc
+  rigidBodyDesc: RigidBodyDesc
+  rigidBody: RigidBody
+  collider: Collider
+}
+
+export type GameObject = BoxGameObject | TriangleGameObject
