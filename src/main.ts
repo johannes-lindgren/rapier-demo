@@ -10,17 +10,17 @@ import {
   Vector2,
 } from '@dimforge/rapier2d'
 import * as PIXI from 'pixi.js'
-import { Container, LINE_JOIN, MIPMAP_MODES } from 'pixi.js'
+import { Container, MIPMAP_MODES } from 'pixi.js'
 import { BoxGameObject, GameObject, TriangleGameObject } from './gameObject.ts'
 import regularVertex from './regular.vert?raw'
 import colorFrag from './color.frag?raw'
-import { zeros } from './array-utils.ts'
+import { linspace, zeros } from './array-utils.ts'
 import { createWhiteNoiseTexture } from './createWhiteNoiseTexture.ts'
 import { createPerlinNoiseTexture } from './createPerlinNoise.ts'
 import { Shape, triangulate, Vec2, Vec3 } from './triangulate.ts'
 import { getRandomColor } from './randomColor.ts'
 import { contour } from './contour.ts'
-import { linspace } from './array-utils.ts'
+import { createDebugShape } from './createDebugShape.ts'
 
 //
 // Rapier
@@ -265,58 +265,6 @@ const drawSegments = (
   pixiWorld.addChild(line)
 }
 
-const drawPoints = (holes: [number, number][]) => {
-  let graphics = new PIXI.Graphics()
-  graphics.beginFill(0xff0000)
-  for (let i = 0; i < holes.length; i++) {
-    graphics.drawCircle(holes[i][0], holes[i][1], lineWidth)
-  }
-  graphics.endFill()
-  pixiWorld.addChild(graphics)
-}
-
-// outer
-const outerVertices: Vec2[] = [
-  // x, y
-  [-2, -2],
-  // x, y
-  [2, -2],
-  // x, y
-  [10, 2],
-  // x, y
-  [3, 3],
-  // x, y
-  [-2, 5],
-]
-// inner
-const innerVertices: Vec2[] = [
-  [-1, -0.5],
-  [0, 0.5],
-  [1, -0.5],
-]
-
-const translateMesh = (pos: Vec2): Vec2 => [pos[0] + 10, pos[1]]
-const vertices = [...outerVertices, ...innerVertices].map(translateMesh)
-const segments: Vec2[] = [
-  [4, 0],
-  [0, 1],
-  [1, 2],
-  [2, 3],
-  [3, 4],
-  [7, 5],
-  [5, 6],
-  [6, 7],
-]
-const holes = [[0, -0.1]].map(translateMesh)
-
-const debugShape: Shape = {
-  vertices,
-  segments,
-  holes,
-}
-
-// Draw triangles
-const triangles = await triangulate(debugShape)
 const drawTriangles = (vertices: Vec2[], indices: Vec3[]) => {
   for (let i = 0; i < indices.length - 1; i++) {
     const vertexIndices = indices[i]
@@ -327,29 +275,68 @@ const drawTriangles = (vertices: Vec2[], indices: Vec3[]) => {
     pixiWorld.addChild(triangleGeometry([vert1, vert2, vert3], 0.2))
   }
 }
-drawTriangles(triangles.vertices, triangles.indices)
-drawSegments(vertices, segments, 0xff0000)
-drawPoints(holes)
 
-const paths = contour()
-paths.forEach((vertices, index) => {
-  const segments = [
-    ...linspace(0, vertices.length - 2, vertices.length - 1).map((i) => [
-      i,
-      i + 1,
-    ]),
-    [vertices.length - 1, 0],
-  ]
-  console.log(vertices, segments)
-  drawSegments(vertices, segments, index % 2 === 0 ? 0xff0000 : 0x00ff00)
-})
+const drawPoints = (holes: [number, number][]) => {
+  let graphics = new PIXI.Graphics()
+  graphics.beginFill(0xff0000)
+  for (let i = 0; i < holes.length; i++) {
+    graphics.drawCircle(holes[i][0], holes[i][1], lineWidth)
+  }
+  graphics.endFill()
+  pixiWorld.addChild(graphics)
+}
+
+const debugShape: Shape = createDebugShape([10, 2])
+
+// Draw triangles
+const debugTriangles = await triangulate(debugShape)
+drawSegments(debugShape.vertices, debugShape.segments, 0xff0000)
+drawPoints(debugShape.holes)
+drawTriangles(debugTriangles.vertices, debugTriangles.indices)
+
+const rustContour = contour()
+console.log(rustContour)
+const drawShape = async (shape: Shape) => {
+  const triangles = await triangulate(shape)
+  drawPoints(shape.holes)
+  drawSegments(shape.vertices, shape.segments, 0xff0000)
+  drawTriangles(triangles.vertices, triangles.indices)
+}
+
+const shapeFromContours = (paths: Vec2[][]): Shape =>
+  paths.reduce(
+    (shape, path, currentIndex, array) => {
+      // Calculate before we mutate shape
+      const firstIndex = shape.segments.length
+      const lastIndex = firstIndex + path.length - 1
+      console.log('first and last', firstIndex, lastIndex)
+      shape.vertices.push(...path)
+      const segments = [
+        ...linspace(firstIndex, lastIndex - 1, path.length - 1).map((i) => [
+          i,
+          i + 1,
+        ]),
+        [lastIndex, firstIndex],
+      ]
+      console.log('segments', segments)
+      shape.segments.push(...segments)
+      return shape
+    },
+    {
+      vertices: [],
+      segments: [],
+      holes: [[2.5, 2.5]],
+    } as Shape,
+  )
+
+drawShape(shapeFromContours(rustContour))
 
 addGameObjects(
-  triangles.indices.map(([i1, i2, i3]) =>
+  debugTriangles.indices.map(([i1, i2, i3]) =>
     createTriangle([
-      triangles.vertices[i1],
-      triangles.vertices[i2],
-      triangles.vertices[i3],
+      debugTriangles.vertices[i1],
+      debugTriangles.vertices[i2],
+      debugTriangles.vertices[i3],
     ]),
   ),
 )
