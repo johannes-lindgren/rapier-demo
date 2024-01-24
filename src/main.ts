@@ -202,7 +202,8 @@ const createTriangle = (vertices: [Vec2, Vec2, Vec2]): TriangleGameObject => {
 const triangleGeometry = (vertices: [Vec2, Vec2, Vec2], alpha: number) => {
   const g = new PIXI.Graphics()
   g.alpha = alpha
-  g.beginFill(getRandomColor())
+  // g.beginFill(getRandomColor())
+  g.beginFill(0x333333)
   g.moveTo(...vertices[0])
   g.lineTo(...vertices[1])
   g.lineTo(...vertices[2])

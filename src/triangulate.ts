@@ -12,7 +12,7 @@ export type Shape = {
 
 export type Triangles = {
   vertices: Vec2[]
-  indices: Vec2[]
+  indices: Vec3[]
 }
 
 export const triangulate = async (shape: Shape) => {
