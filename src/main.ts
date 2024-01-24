@@ -17,7 +17,7 @@ import colorFrag from './color.frag?raw'
 import { linspace, zeros } from './array-utils.ts'
 import { createWhiteNoiseTexture } from './createWhiteNoiseTexture.ts'
 import { createPerlinNoiseTexture } from './createPerlinNoise.ts'
-import { Shape, triangulate, Vec2, Vec3 } from './triangulate.ts'
+import { Shape, Triangles, triangulate, Vec2, Vec3 } from './triangulate.ts'
 import { getRandomColor } from './randomColor.ts'
 import { contour } from './contour.ts'
 import { createDebugShape } from './createDebugShape.ts'
@@ -121,16 +121,17 @@ const whiteNoiseTexture = createWhiteNoiseTexture(app.renderer, {
   height: 1024,
 })
 
+const perlinTextureDimensions = {
+  // width: 128,
+  // height: 128,
+  width: 32,
+  height: 32,
+}
 const perlinNoiseTexture = createPerlinNoiseTexture(
   app.renderer,
-  {
-    width: 1024,
-    height: 1024,
-  },
+  perlinTextureDimensions,
   whiteNoiseTexture,
 )
-
-// console.log(app.renderer.extract.pixels(perlinNoiseTexture))
 
 const shader = PIXI.Shader.from(regularVertex, colorFrag, {
   // uSampler2: PIXI.Texture.from('https://pixijs.com/assets/perlin.jpg'),
@@ -226,26 +227,7 @@ const addGameObjects = (newObjs: GameObject[]) => {
 // Generate world
 //
 
-const horizontalBoxes = 30
-const verticalBoxes = 30
-
-addGameObjects(
-  zeros(horizontalBoxes).flatMap((_, column) =>
-    zeros(verticalBoxes).map((_, row) =>
-      createBox(
-        new Vector2(column - horizontalBoxes / 2, row - verticalBoxes),
-        {
-          u: column / horizontalBoxes,
-          v: row / verticalBoxes,
-          uw: 1 / horizontalBoxes,
-          vw: 1 / verticalBoxes,
-        },
-      ),
-    ),
-  ),
-)
-
-const lineWidth = 0.1
+const lineWidth = 0.05
 const drawSegments = (
   vertices: [number, number][],
   segments: [number, number][],
@@ -294,14 +276,16 @@ drawSegments(debugShape.vertices, debugShape.segments, 0xff0000)
 drawPoints(debugShape.holes)
 drawTriangles(debugTriangles.vertices, debugTriangles.indices)
 
-const rustContour = contour()
-console.log(rustContour)
-const drawShape = async (shape: Shape) => {
-  const triangles = await triangulate(shape)
-  drawPoints(shape.holes)
-  drawSegments(shape.vertices, shape.segments, 0xff0000)
-  drawTriangles(triangles.vertices, triangles.indices)
-}
+const mapContour = contour(
+  perlinTextureDimensions.width,
+  perlinTextureDimensions.height,
+  app.renderer.extract.pixels(perlinNoiseTexture),
+).map((path) =>
+  path.map(([x, y]) => [
+    20 * ((x - 1) / perlinTextureDimensions.width - 0.5),
+    20 * ((y - 1) / perlinTextureDimensions.height - 1),
+  ]),
+)
 
 const shapeFromContours = (paths: Vec2[][]): Shape =>
   paths.reduce(
@@ -309,7 +293,6 @@ const shapeFromContours = (paths: Vec2[][]): Shape =>
       // Calculate before we mutate shape
       const firstIndex = shape.segments.length
       const lastIndex = firstIndex + path.length - 1
-      console.log('first and last', firstIndex, lastIndex)
       shape.vertices.push(...path)
       const segments = [
         ...linspace(firstIndex, lastIndex - 1, path.length - 1).map((i) => [
@@ -318,28 +301,54 @@ const shapeFromContours = (paths: Vec2[][]): Shape =>
         ]),
         [lastIndex, firstIndex],
       ]
-      console.log('segments', segments)
       shape.segments.push(...segments)
       return shape
     },
     {
       vertices: [],
       segments: [],
-      holes: [[2.5, 2.5]],
+      holes: [],
     } as Shape,
   )
 
-drawShape(shapeFromContours(rustContour))
+const worldShape = shapeFromContours(mapContour)
 
-addGameObjects(
-  debugTriangles.indices.map(([i1, i2, i3]) =>
+const worldTriangles = await triangulate(worldShape)
+drawPoints(worldShape.holes)
+drawSegments(worldShape.vertices, worldShape.segments, 0xff0000)
+drawTriangles(worldTriangles.vertices, worldTriangles.indices)
+
+const createTriangles = (triangles: Triangles) =>
+  triangles.indices.map(([i1, i2, i3]) =>
     createTriangle([
-      debugTriangles.vertices[i1],
-      debugTriangles.vertices[i2],
-      debugTriangles.vertices[i3],
+      triangles.vertices[i1],
+      triangles.vertices[i2],
+      triangles.vertices[i3],
     ]),
-  ),
-)
+  )
+
+addGameObjects(createTriangles(debugTriangles))
+addGameObjects(createTriangles(worldTriangles))
+
+// Boxes
+// const horizontalBoxes = 20
+// const verticalBoxes = 20
+//
+// addGameObjects(
+//   zeros(horizontalBoxes).flatMap((_, column) =>
+//     zeros(verticalBoxes).map((_, row) =>
+//       createBox(
+//         new Vector2(column - horizontalBoxes / 2, row - verticalBoxes),
+//         {
+//           u: column / horizontalBoxes,
+//           v: row / verticalBoxes,
+//           uw: 1 / horizontalBoxes,
+//           vw: 1 / verticalBoxes,
+//         },
+//       ),
+//     ),
+//   ),
+// )
 
 // Listen for animate update
 app.ticker.add(() => {

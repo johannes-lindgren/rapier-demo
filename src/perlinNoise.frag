@@ -44,22 +44,15 @@ void main() {
   float dotBl = dot(d2Bl, gradient(rBl[0]));
   float dotBr = dot(d2Br, gradient(rBr[0]));
 
-//  vec2 gridUv2 = smoothstep(0, 1, gridUv);
   vec2 gridUv2 = fade(gridUv);
-//  vec2 gridUv2 = gridUv;
   gridUv2.y = 1.0 - gridUv2.y;
-  //  TODO why is this needed?
 
   float b = mix(dotBl, dotBr, gridUv2.x);
   float t = mix(dotTl, dotTr, gridUv2.x);
   float perlin = 0.5 * mix(b, t, gridUv2.y) + 0.5;
 
-//  float val = gridCoord.x;
   float color = perlin;
   float a = perlin > 0.5 ? 1.0 : 0.0;
-  fragColor = vec4(perlin,perlin,perlin, 1.0) * a;
-//  fragColor = vec4(color,color,color, 1.0);
-//  fragColor = r;
-  //  fragColor = vec4(1,0,0,1);
-  //  gl_FragColor = vec4(val, val, val, 1);
+//  fragColor = vec4(perlin,perlin,perlin, 1.0) * a;
+  fragColor = vec4(perlin,perlin,perlin, 1.0);
 }

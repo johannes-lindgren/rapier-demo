@@ -7,15 +7,23 @@ extern {
 }
 
 #[wasm_bindgen]
-pub fn greet(name: &str) -> String {
-    let bits = vec![
-        vec![1, 1, 1, 1, 1, 1],
-        vec![1, 0, 1, 0, 0, 1],
-        vec![1, 0, 1, 0, 0, 1],
-        vec![1, 0, 1, 0, 0, 1],
-        vec![1, 1, 1, 1, 1, 1],
-    ];
+pub fn greet(width: usize, height: i32, data: &[u8]) -> String {
+    // let bits = vec![
+    //     vec![1, 1, 1, 1, 1, 1],
+    //     vec![1, 0, 1, 0, 0, 1],
+    //     vec![1, 0, 1, 0, 0, 1],
+    //     vec![1, 0, 1, 0, 0, 1],
+    //     vec![1, 1, 1, 1, 1, 1],
+    // ];
+    let bits = data
+        .iter()
+        .step_by(4)
+        .cloned()
+        .collect::<Vec<_>>()
+        // 4 colors
+        .chunks(width)
+        .map(|chunk| chunk.iter().map(|&b| if b > 128 { 1i8 } else { 0i8 }).collect())
+        .collect();
 
-
-    format!("{}", bits_to_paths(bits, true))
+    bits_to_paths(bits, true)
 }

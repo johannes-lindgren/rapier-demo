@@ -10,6 +10,11 @@ export type Shape = {
   holes: Vec2[]
 }
 
+export type Triangles = {
+  vertices: Vec2[]
+  indices: Vec2[]
+}
+
 export const triangulate = async (shape: Shape) => {
   await Triangle.init('/triangle.out.wasm')
 
@@ -37,7 +42,7 @@ export const triangulate = async (shape: Shape) => {
 
   // draw output
   // ...
-  const triangles = {
+  const triangles: Triangles = {
     vertices: chunk(Array.from(output.pointlist), 2) as Vec2[],
     indices: chunk(Array.from(output.trianglelist), 3) as Vec3[],
   }

@@ -13,7 +13,7 @@ export const createPerlinNoiseTexture = (
 ): RenderTexture => {
   const whiteNoiseFilter = new Filter(defaultVert, noiseFrag, {
     whiteNoise: whiteNoiseTexture,
-    size: [0.03, 0.03],
+    size: [0.2, 0.2],
   })
 
   const renderTexture = RenderTexture.create(dimensions)
