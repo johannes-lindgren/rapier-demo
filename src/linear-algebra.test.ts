@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { linspace } from './array-utils.ts'
+import { linspace } from './linear-algebra.ts'
 
 describe('linspace', () => {
   it('works', () => {

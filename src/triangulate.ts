@@ -15,7 +15,7 @@ export type Triangles = {
   indices: Vec3[]
 }
 
-export const triangulate = async (shape: Shape) => {
+export const triangulate = async (shape: Shape, area: number) => {
   await Triangle.init('/triangle.out.wasm')
 
   const data = {
@@ -34,7 +34,7 @@ export const triangulate = async (shape: Shape) => {
       holes: true,
       ccdt: false,
       convexHull: false,
-      area: 0.2,
+      area,
     },
     input,
     output,

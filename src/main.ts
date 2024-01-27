@@ -14,13 +14,15 @@ import { Container, MIPMAP_MODES } from 'pixi.js'
 import { BoxGameObject, GameObject, TriangleGameObject } from './gameObject.ts'
 import regularVertex from './regular.vert?raw'
 import colorFrag from './color.frag?raw'
-import { linspace, zeros } from './array-utils.ts'
+import { filterLoop, linspace, ones } from './linear-algebra.ts'
 import { createWhiteNoiseTexture } from './createWhiteNoiseTexture.ts'
 import { createPerlinNoiseTexture } from './createPerlinNoise.ts'
 import { Shape, Triangles, triangulate, Vec2, Vec3 } from './triangulate.ts'
-import { getRandomColor } from './randomColor.ts'
 import { contour } from './contour.ts'
 import { createDebugShape } from './createDebugShape.ts'
+import { normalized1 } from './vec.ts'
+import { getRandomColor } from './randomColor.ts'
+import { douglasPeucker, radialDistance } from './signal-processing'
 
 //
 // Rapier
@@ -61,7 +63,7 @@ const handleResize = () => {
   const width = window.innerWidth
   const height = window.innerHeight
   // See 10 meters horizontally
-  const viewportWidth = 30
+  const viewportWidth = 50
 
   const scale = width / viewportWidth
   viewport.scale.set(scale, -scale)
@@ -124,8 +126,8 @@ const whiteNoiseTexture = createWhiteNoiseTexture(app.renderer, {
 const perlinTextureDimensions = {
   // width: 128,
   // height: 128,
-  width: 32,
-  height: 32,
+  width: 128,
+  height: 128,
 }
 const perlinNoiseTexture = createPerlinNoiseTexture(
   app.renderer,
@@ -201,6 +203,7 @@ const createTriangle = (vertices: [Vec2, Vec2, Vec2]): TriangleGameObject => {
 
 const triangleGeometry = (vertices: [Vec2, Vec2, Vec2], alpha: number) => {
   const g = new PIXI.Graphics()
+  // g.addAt
   g.alpha = alpha
   // g.beginFill(getRandomColor())
   g.beginFill(0x333333)
@@ -229,6 +232,7 @@ const addGameObjects = (newObjs: GameObject[]) => {
 //
 
 const lineWidth = 0.05
+const pointRadius = 0.1
 const drawSegments = (
   vertices: [number, number][],
   segments: [number, number][],
@@ -259,11 +263,11 @@ const drawTriangles = (vertices: Vec2[], indices: Vec3[]) => {
   }
 }
 
-const drawPoints = (holes: [number, number][]) => {
+const drawPoints = (holes: [number, number][], color: number) => {
   let graphics = new PIXI.Graphics()
-  graphics.beginFill(0xff0000)
+  graphics.beginFill(color)
   for (let i = 0; i < holes.length; i++) {
-    graphics.drawCircle(holes[i][0], holes[i][1], lineWidth)
+    graphics.drawCircle(holes[i][0], holes[i][1], pointRadius)
   }
   graphics.endFill()
   pixiWorld.addChild(graphics)
@@ -272,35 +276,46 @@ const drawPoints = (holes: [number, number][]) => {
 const debugShape: Shape = createDebugShape([10, 2])
 
 // Draw triangles
-const debugTriangles = await triangulate(debugShape)
+const triangleArea = 0.2
+const triangleSide = Math.sqrt(triangleArea / 2)
+const debugTriangles = await triangulate(debugShape, triangleArea)
 drawSegments(debugShape.vertices, debugShape.segments, 0xff0000)
-drawPoints(debugShape.holes)
+drawPoints(debugShape.holes, 0xff0000)
 drawTriangles(debugTriangles.vertices, debugTriangles.indices)
 
-const mapContour = contour(
+const mapDimensions = {
+  width: 40,
+  height: 40,
+}
+const contourResult = contour(
   perlinTextureDimensions.width,
   perlinTextureDimensions.height,
   app.renderer.extract.pixels(perlinNoiseTexture),
-).map((path) =>
-  path.map(([x, y]) => [
-    20 * ((x - 1) / perlinTextureDimensions.width - 0.5),
-    20 * ((y - 1) / perlinTextureDimensions.height - 1),
-  ]),
 )
+
+const worldCoordinateFromContour = ([x, y]: Vec2) =>
+  [
+    mapDimensions.width * ((x - 1) / perlinTextureDimensions.width - 0.5),
+    mapDimensions.height * ((y - 1) / perlinTextureDimensions.height - 1),
+  ] as Vec2
+
+const mapContour = contourResult.contours.map((path) =>
+  path.map(worldCoordinateFromContour),
+)
+const mapHoles = contourResult.holes.map(worldCoordinateFromContour)
 
 const shapeFromContours = (paths: Vec2[][]): Shape =>
   paths.reduce(
-    (shape, path, currentIndex, array) => {
+    (shape, path) => {
       // Calculate before we mutate shape
       const firstIndex = shape.segments.length
       const lastIndex = firstIndex + path.length - 1
       shape.vertices.push(...path)
       const segments = [
-        ...linspace(firstIndex, lastIndex - 1, path.length - 1).map((i) => [
-          i,
-          i + 1,
-        ]),
-        [lastIndex, firstIndex],
+        ...linspace(firstIndex, lastIndex - 1, path.length - 1).map(
+          (i) => [i, i + 1] as Vec2,
+        ),
+        [lastIndex, firstIndex] as Vec2,
       ]
       shape.segments.push(...segments)
       return shape
@@ -312,12 +327,19 @@ const shapeFromContours = (paths: Vec2[][]): Shape =>
     } as Shape,
   )
 
-const worldShape = shapeFromContours(mapContour)
+const filter = normalized1([1, 2, 3, 2, 1])
+const worldShape = shapeFromContours(
+  mapContour.map(
+    // (it) => douglasPeucker(filterLoop(it, filter), triangleSide / 10),
+    (it) => it,
+  ),
+  // mapContour.map((it: Vec2[]) =>
+  //   radialDistance(filterLoop(it, filter), triangleSide * 2),
+  // ),
+)
 
-const worldTriangles = await triangulate(worldShape)
-drawPoints(worldShape.holes)
-drawSegments(worldShape.vertices, worldShape.segments, 0xff0000)
-drawTriangles(worldTriangles.vertices, worldTriangles.indices)
+const worldTriangles = await triangulate(worldShape, triangleArea)
+// drawTriangles(worldTriangles.vertices, worldTriangles.indices)
 
 const createTriangles = (triangles: Triangles) =>
   triangles.indices.map(([i1, i2, i3]) =>
@@ -328,8 +350,11 @@ const createTriangles = (triangles: Triangles) =>
     ]),
   )
 
-addGameObjects(createTriangles(debugTriangles))
+// addGameObjects(createTriangles(debugTriangles))
 addGameObjects(createTriangles(worldTriangles))
+drawPoints(mapHoles, 0x00ff00)
+drawSegments(worldShape.vertices, worldShape.segments, 0xff0000)
+drawPoints(worldShape.vertices, 0xff0000)
 
 // Boxes
 // const horizontalBoxes = 20
