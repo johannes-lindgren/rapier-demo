@@ -14,15 +14,14 @@ import { Container, MIPMAP_MODES } from 'pixi.js'
 import { BoxGameObject, GameObject, TriangleGameObject } from './gameObject.ts'
 import regularVertex from './regular.vert?raw'
 import colorFrag from './color.frag?raw'
-import { filterLoop, linspace, ones } from './linear-algebra.ts'
+import { filterLoop, linspace } from './linear-algebra.ts'
 import { createWhiteNoiseTexture } from './createWhiteNoiseTexture.ts'
 import { createPerlinNoiseTexture } from './createPerlinNoise.ts'
 import { Shape, Triangles, triangulate, Vec2, Vec3 } from './triangulate.ts'
 import { contour } from './contour.ts'
-import { createDebugShape } from './createDebugShape.ts'
 import { normalized1 } from './vec.ts'
-import { getRandomColor } from './randomColor.ts'
-import { douglasPeucker, radialDistance } from './signal-processing'
+import { douglasPeucker } from './signal-processing'
+import { calculateZIndices } from './calculateZIndices.ts'
 
 //
 // Rapier
@@ -57,6 +56,7 @@ document.body.appendChild(app.view)
 const viewport = new Container()
 app.stage.addChild(viewport)
 const pixiWorld = new Container()
+pixiWorld.sortableChildren = true
 viewport.addChild(pixiWorld)
 
 const handleResize = () => {
@@ -77,6 +77,13 @@ const handleResize = () => {
 window.addEventListener('resize', handleResize)
 handleResize()
 
+const zIndex = calculateZIndices(['background', 'terrain', 'player', 'grenade'])
+
+const mapDimensions = {
+  width: 40,
+  height: 40,
+}
+
 // create a new Sprite from an image path
 const playerSprite = PIXI.Sprite.from('/player_512.png', {
   mipmap: MIPMAP_MODES.POW2,
@@ -86,6 +93,7 @@ playerSprite.anchor.set(0.5)
 // move the sprite to the center of the screen
 playerSprite.x = 0
 playerSprite.y = 0
+playerSprite.zIndex = zIndex.player
 playerSprite.width = 1
 playerSprite.height = 1
 pixiWorld.addChild(playerSprite)
@@ -118,10 +126,14 @@ const rectangleUvs = [
   0, 1,
 ]
 
-const whiteNoiseTexture = createWhiteNoiseTexture(app.renderer, {
-  width: 1024,
-  height: 1024,
-})
+const whiteNoiseTexture = createWhiteNoiseTexture(
+  app.renderer,
+  {
+    width: 1024,
+    height: 1024,
+  },
+  linspace(1, 4, 4),
+)
 
 const perlinTextureDimensions = {
   // width: 128,
@@ -134,6 +146,13 @@ const perlinNoiseTexture = createPerlinNoiseTexture(
   perlinTextureDimensions,
   whiteNoiseTexture,
 )
+
+const noiseSprite = PIXI.Sprite.from(perlinNoiseTexture, {})
+noiseSprite.anchor.set(0.5, 1)
+noiseSprite.width = mapDimensions.width
+noiseSprite.height = mapDimensions.height
+noiseSprite.zIndex = zIndex.background
+pixiWorld.addChild(noiseSprite)
 
 const shader = PIXI.Shader.from(regularVertex, colorFrag, {
   // uSampler2: PIXI.Texture.from('https://pixijs.com/assets/perlin.jpg'),
@@ -283,10 +302,6 @@ const triangleSide = Math.sqrt(triangleArea / 2)
 // drawPoints(debugShape.holes, 0xff0000)
 // drawTriangles(debugTriangles.vertices, debugTriangles.indices)
 
-const mapDimensions = {
-  width: 40,
-  height: 40,
-}
 const contourResult = contour(
   perlinTextureDimensions.width,
   perlinTextureDimensions.height,
@@ -327,7 +342,7 @@ const shapeFromContours = (paths: Vec2[][], holes: Vec2[]): Shape =>
     } as Shape,
   )
 
-const filter = normalized1([1, 2, 3, 2, 1])
+const filter = normalized1([1, 2, 1])
 const worldShape = shapeFromContours(
   mapContour.map(
     (it) => douglasPeucker(filterLoop(it, filter), triangleSide / 10),

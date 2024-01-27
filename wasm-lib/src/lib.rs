@@ -43,7 +43,7 @@ impl World {
 #[wasm_bindgen]
 pub fn greet(width: usize, height: i32, data: &[u8]) -> World {
     let threshold = 128;
-    let hole_threshold = threshold - 8;
+    let hole_threshold = threshold - 12;
     let bits: Vec<Vec<i8>> = data
         .iter()
         .step_by(4)
@@ -61,7 +61,7 @@ pub fn greet(width: usize, height: i32, data: &[u8]) -> World {
         .collect();
 
     // Lower the resolution of the holes
-    let holeStep = 4;
+    let holeStep = 1;
 
     let holes = data
         .iter()
@@ -70,12 +70,12 @@ pub fn greet(width: usize, height: i32, data: &[u8]) -> World {
         .collect::<Vec<_>>()
         // 4 colors
         .chunks(width)
-        .step_by(4)
+        .step_by(holeStep)
         .enumerate()
         .flat_map(|(row, &ref rows)|
             rows
                 .iter()
-                .step_by(4)
+                .step_by(holeStep)
                 .enumerate()
                 .filter_map(|(column, &b)|
                     if b < hole_threshold {

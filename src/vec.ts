@@ -2,9 +2,11 @@ import { chunk } from 'lodash'
 
 export type Tuple2<T> = [T, T]
 export type Tuple3<T> = [T, T, T]
+export type Tuple4<T> = [T, T, T, T]
 export type Vec = number[]
 export type Vec2 = Tuple2<number>
 export type Vec3 = Tuple3<number>
+export type Vec4 = Tuple4<number>
 
 export const sum = (v: Vec) => {
   let acc = 0
