@@ -273,15 +273,15 @@ const drawPoints = (holes: [number, number][], color: number) => {
   pixiWorld.addChild(graphics)
 }
 
-const debugShape: Shape = createDebugShape([10, 2])
-
 // Draw triangles
 const triangleArea = 0.2
 const triangleSide = Math.sqrt(triangleArea / 2)
-const debugTriangles = await triangulate(debugShape, triangleArea)
-drawSegments(debugShape.vertices, debugShape.segments, 0xff0000)
-drawPoints(debugShape.holes, 0xff0000)
-drawTriangles(debugTriangles.vertices, debugTriangles.indices)
+
+// const debugShape: Shape = createDebugShape([10, 2])
+// const debugTriangles = await triangulate(debugShape, triangleArea)
+// drawSegments(debugShape.vertices, debugShape.segments, 0xff0000)
+// drawPoints(debugShape.holes, 0xff0000)
+// drawTriangles(debugTriangles.vertices, debugTriangles.indices)
 
 const mapDimensions = {
   width: 40,
@@ -304,7 +304,7 @@ const mapContour = contourResult.contours.map((path) =>
 )
 const mapHoles = contourResult.holes.map(worldCoordinateFromContour)
 
-const shapeFromContours = (paths: Vec2[][]): Shape =>
+const shapeFromContours = (paths: Vec2[][], holes: Vec2[]): Shape =>
   paths.reduce(
     (shape, path) => {
       // Calculate before we mutate shape
@@ -323,16 +323,17 @@ const shapeFromContours = (paths: Vec2[][]): Shape =>
     {
       vertices: [],
       segments: [],
-      holes: [],
+      holes,
     } as Shape,
   )
 
 const filter = normalized1([1, 2, 3, 2, 1])
 const worldShape = shapeFromContours(
   mapContour.map(
-    // (it) => douglasPeucker(filterLoop(it, filter), triangleSide / 10),
-    (it) => it,
+    (it) => douglasPeucker(filterLoop(it, filter), triangleSide / 10),
+    // (it) => it,
   ),
+  mapHoles,
   // mapContour.map((it: Vec2[]) =>
   //   radialDistance(filterLoop(it, filter), triangleSide * 2),
   // ),
