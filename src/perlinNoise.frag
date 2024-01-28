@@ -9,8 +9,7 @@ out vec4 fragColor;
 uniform sampler2D whiteNoise;
 uniform vec2 perlins[MAX_STRUCTS];
 uniform int perlinsCount;
-uniform float time;
-
+uniform vec2 dimensions;
 
 // r between 0 and 1
 vec2 gradient(float r) {
@@ -23,12 +22,12 @@ vec2 fade(vec2 t) {
 }
 
 float perlin(sampler2D whiteNoise, vec2 vTextureCoord, vec2 size) {
-  vec2 coord = vec2(vTextureCoord.x / size.x, vTextureCoord.y / size.y);
-  float colf = floor(coord.x);
-  float rowf = floor(coord.y);
+  vec2 uv = vec2(vTextureCoord.x / size.x, vTextureCoord.y / size.y);
+  float colf = floor(uv.x);
+  float rowf = floor(uv.y);
   int column = int(colf);
   int row = int(rowf);
-  vec2 gridUv = vec2(coord.x - colf, coord.y - rowf);
+  vec2 gridUv = vec2(uv.x - colf, uv.y - rowf);
 
   vec2 d2Tl = (gridUv - vec2(0, 0));
   vec2 d2Tr = (gridUv - vec2(1, 0));
@@ -56,10 +55,12 @@ float perlin(sampler2D whiteNoise, vec2 vTextureCoord, vec2 size) {
 
 void main() {
   float color = 0.0;
+  float aspectRatio = dimensions.x / dimensions.y;
   for (int i = 0; i < perlinsCount; i++) {
     float size = perlins[i][0];
     float weight = perlins[i][1];
-    color += weight * perlin(whiteNoise, vTextureCoord, vec2(size, size));
+    color += weight * perlin(whiteNoise, vTextureCoord, vec2(size, aspectRatio * size));
   }
+
   fragColor = vec4(color, color, color, 1.0);
 }

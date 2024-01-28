@@ -1,13 +1,14 @@
 #version 300 es
 
+precision mediump float;
+
 in vec2 aVertexPosition;
 
 uniform mat3 projectionMatrix;
-
-out vec2 vTextureCoord;
-
 uniform vec4 inputSize;
 uniform vec4 outputFrame;
+
+out vec2 vTextureCoord;
 
 vec4 filterVertexPosition( void )
 {

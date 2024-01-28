@@ -16,6 +16,18 @@ export const sum = (v: Vec) => {
   return acc
 }
 
+export const mean = (vecs: Vec2[]): Vec2 => {
+  let x = 0
+  let y = 0
+  for (let v of vecs) {
+    x += v[0]
+    y += v[1]
+  }
+  x /= vecs.length
+  y /= vecs.length
+  return [x, y]
+}
+
 /**
  * The L1 norm, Manhattan norm
  * @param v

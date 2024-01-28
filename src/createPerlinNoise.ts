@@ -2,11 +2,13 @@ import { Filter, Renderer, RenderTexture, Texture } from 'pixi.js'
 import * as PIXI from 'pixi.js'
 import defaultVert from './default.vert?raw'
 import fragmentShader from './perlinNoise.frag?raw'
-import { sum, Vec, Vec2 } from './vec.ts'
+import { sum, Vec } from './vec.ts'
+import { Vector } from './vector.ts'
 
-const perlinNoiseFilter = (whiteNoiseTexture: Texture) =>
+const perlinNoiseFilter = (whiteNoiseTexture: Texture, dimensions: Vector) =>
   new Filter(defaultVert, fragmentShader, {
     whiteNoise: whiteNoiseTexture,
+    dimensions: dimensions,
     ...perlins([
       {
         size: 0.3,
@@ -35,18 +37,18 @@ const perlins = (
 
 export const createPerlinNoiseTexture = (
   renderer: Renderer,
-  dimensions: {
-    width: number
-    height: number
-  },
+  dimensions: Vector,
   whiteNoiseTexture: Texture,
 ): RenderTexture => {
-  const renderTexture = RenderTexture.create(dimensions)
+  const renderTexture = RenderTexture.create({
+    width: dimensions.x,
+    height: dimensions.y,
+  })
 
   let sprite = new PIXI.Graphics()
   sprite.beginFill(0x000000)
-  sprite.drawRect(0, 0, dimensions.width, dimensions.height)
-  sprite.filters = [perlinNoiseFilter(whiteNoiseTexture)]
+  sprite.drawRect(0, 0, dimensions.x, dimensions.y)
+  sprite.filters = [perlinNoiseFilter(whiteNoiseTexture, dimensions)]
 
   renderer.render(sprite, { renderTexture })
   return renderTexture

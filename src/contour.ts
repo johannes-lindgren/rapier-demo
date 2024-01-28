@@ -4,7 +4,7 @@ import { Vec2, vec2sFromVec } from './vec.ts'
 
 export type ContourResult = {
   contours: Vec2[][]
-  holes: Vec2[]
+  holes: Vec2[][]
 }
 
 export const contour = (
@@ -14,9 +14,8 @@ export const contour = (
 ): ContourResult => {
   // TODO call free
   const world = greet(width, height, pixels)
-  const path = world.path
   return {
-    contours: parseSvgPath(path),
-    holes: vec2sFromVec(Array.from(world.holes)),
+    contours: parseSvgPath(world.path),
+    holes: parseSvgPath(world.holes),
   }
 }

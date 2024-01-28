@@ -9,13 +9,14 @@ extern {
 #[wasm_bindgen]
 pub struct World {
     path: String,
-    holes: Vec<u32>,
+    holes: String,
+    // holes: Vec<u32>,
 }
 
 #[wasm_bindgen]
 impl World {
     #[wasm_bindgen(constructor)]
-    pub fn new(path: String, holes: Vec<u32>) -> World {
+    pub fn new(path: String, holes: String) -> World {
         World { path, holes }
     }
 
@@ -30,66 +31,122 @@ impl World {
     }
 
     #[wasm_bindgen(getter)]
-    pub fn holes(&self) -> Vec<u32> {
+    pub fn holes(&self) -> String {
         self.holes.clone()
     }
 
     #[wasm_bindgen(setter)]
-    pub fn set_holes(&mut self, path: Vec<u32>) {
+    pub fn set_holes(&mut self, path: String) {
         self.holes = path;
     }
+    // #[wasm_bindgen(getter)]
+    // pub fn holes(&self) -> Vec<u32> {
+    //     self.holes.clone()
+    // }
+    //
+    // #[wasm_bindgen(setter)]
+    // pub fn set_holes(&mut self, path: Vec<u32>) {
+    //     self.holes = path;
+    // }
 }
+
+// fn bit_map<F>(data: &[u8], chunk_size: usize, predicate: F) -> Vec<Vec<i8>> where F: FnOnce(&u8) -> i8 {
+//     data
+//         .iter()
+//         .step_by(4)
+//         .cloned()
+//         .collect::<Vec<_>>()
+//         // 4 colors
+//         .chunks(chunk_size)
+//         .map(|chunk| chunk
+//             .iter()
+//             .map(predicate)
+//             .collect::<Vec<i8>>()
+//         )
+//         .collect::<Vec<Vec<i8>>>()
+// }
 
 #[wasm_bindgen]
 pub fn greet(width: usize, height: i32, data: &[u8]) -> World {
-    let threshold = 128;
+    let threshold = 128u8;
     let hole_threshold = threshold - 12;
-    let bits: Vec<Vec<i8>> = data
+
+    let terrain_predicate = |&b: &u8|
+        if b >= threshold {
+            1i8
+        } else {
+            0i8
+        };
+    let holes_predicate = |&b: &u8|
+        if b >= hole_threshold {
+            0i8
+        } else {
+            1i8
+        };
+
+    let above_threshold: Vec<Vec<i8>> = data
         .iter()
         .step_by(4)
         .cloned()
         .collect::<Vec<_>>()
         // 4 colors
         .chunks(width)
-        .map(|chunk| chunk.iter().map(|&b|
-            if b > threshold {
-                1i8
-            } else {
-                0i8
-            }).collect()
+        .map(|chunk| chunk
+            .iter()
+            .map(terrain_predicate)
+            .collect()
         )
         .collect();
 
-    // Lower the resolution of the holes
-    let holeStep = 1;
+    let path = bits_to_paths(above_threshold.clone(), true);
 
-    let holes = data
+
+    let below_threshold: Vec<Vec<i8>> = data
         .iter()
         .step_by(4)
         .cloned()
         .collect::<Vec<_>>()
         // 4 colors
         .chunks(width)
-        .step_by(holeStep)
-        .enumerate()
-        .flat_map(|(row, &ref rows)|
-            rows
-                .iter()
-                .step_by(holeStep)
-                .enumerate()
-                .filter_map(|(column, &b)|
-                    if b < hole_threshold {
-                        Some([
-                            (column * holeStep) as u32,
-                            (row * holeStep) as u32
-                        ].to_vec())
-                    } else {
-                        None
-                    })
-                .flatten()
-                .collect::<Vec<u32>>()
+        .map(|chunk| chunk
+            .iter()
+            .map(holes_predicate)
+            .collect()
         )
-        .collect::<Vec<u32>>();
+        .collect();
+
+    let holes = bits_to_paths(below_threshold, true);
+
+    // // Lower the resolution of the holes
+    // let holeStep = 1;
+    //
+    // let holes = data
+    //     .iter()
+    //     .step_by(4)
+    //     .cloned()
+    //     .collect::<Vec<_>>()
+    //     // 4 colors
+    //     .chunks(width)
+    //     .step_by(holeStep)
+    //     .enumerate()
+    //     .flat_map(|(row, &ref rows)|
+    //         rows
+    //             .iter()
+    //             .step_by(holeStep)
+    //             .enumerate()
+    //             .filter_map(|(column, &b)|
+    //                 if b < hole_threshold {
+    //                     Some([
+    //                         (column * holeStep) as u32,
+    //                         (row * holeStep) as u32
+    //                     ].to_vec())
+    //                 } else {
+    //                     None
+    //                 })
+    //             .flatten()
+    //             .collect::<Vec<u32>>()
+    //     )
+    //     .collect::<Vec<u32>>();
 
 
     // let holes: Vec<u32> = bits
@@ -115,7 +172,6 @@ pub fn greet(width: usize, height: i32, data: &[u8]) -> World {
     //     )
     //     .collect::<Vec<u32>>();
 
-    let path = bits_to_paths(bits, true);
     World {
         path,
         holes,

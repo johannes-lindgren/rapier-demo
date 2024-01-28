@@ -10,7 +10,7 @@ import {
   Vector2,
 } from '@dimforge/rapier2d'
 import * as PIXI from 'pixi.js'
-import { Container, MIPMAP_MODES } from 'pixi.js'
+import { Container, Mesh, MIPMAP_MODES, Shader } from 'pixi.js'
 import { BoxGameObject, GameObject, TriangleGameObject } from './gameObject.ts'
 import regularVertex from './regular.vert?raw'
 import colorFrag from './color.frag?raw'
@@ -19,9 +19,13 @@ import { createWhiteNoiseTexture } from './createWhiteNoiseTexture.ts'
 import { createPerlinNoiseTexture } from './createPerlinNoise.ts'
 import { Shape, Triangles, triangulate, Vec2, Vec3 } from './triangulate.ts'
 import { contour } from './contour.ts'
-import { normalized1 } from './vec.ts'
-import { douglasPeucker } from './signal-processing'
+import { mean, normalized1 } from './vec.ts'
+import { douglasPeucker, radialDistance } from './signal-processing'
 import { calculateZIndices } from './calculateZIndices.ts'
+import { createTriangleShader } from './createTriangleShader.ts'
+import { createDebugShape } from './createDebugShape.ts'
+import { identity } from './identity.ts'
+import { vector } from './vector.ts'
 
 //
 // Rapier
@@ -32,8 +36,8 @@ const boxSize = 1
 // Use the Rapier module here.
 let gravity = {
   x: 0.0,
-  // y: 0,
-  y: -9.81,
+  y: 0,
+  // y: -9.81,
 }
 let world = new Rapier.World(gravity)
 
@@ -77,10 +81,16 @@ const handleResize = () => {
 window.addEventListener('resize', handleResize)
 handleResize()
 
-const zIndex = calculateZIndices(['background', 'terrain', 'player', 'grenade'])
+const zIndex = calculateZIndices([
+  'background',
+  'terrain',
+  'player',
+  'grenade',
+  'debug',
+])
 
 const mapDimensions = {
-  width: 40,
+  width: 20,
   height: 40,
 }
 
@@ -135,12 +145,8 @@ const whiteNoiseTexture = createWhiteNoiseTexture(
   linspace(1, 4, 4),
 )
 
-const perlinTextureDimensions = {
-  // width: 128,
-  // height: 128,
-  width: 128,
-  height: 128,
-}
+const aspectRatio = mapDimensions.width / mapDimensions.height
+const perlinTextureDimensions = vector(256, 256 / aspectRatio)
 const perlinNoiseTexture = createPerlinNoiseTexture(
   app.renderer,
   perlinTextureDimensions,
@@ -154,48 +160,7 @@ noiseSprite.height = mapDimensions.height
 noiseSprite.zIndex = zIndex.background
 pixiWorld.addChild(noiseSprite)
 
-const shader = PIXI.Shader.from(regularVertex, colorFrag, {
-  // uSampler2: PIXI.Texture.from('https://pixijs.com/assets/perlin.jpg'),
-  uSampler2: perlinNoiseTexture,
-  time: 0,
-})
-
-const createBox = (
-  position: Vector,
-  textureSpan: {
-    u: number
-    v: number
-    uw: number
-    vw: number
-  },
-): BoxGameObject => {
-  const { u, v, uw, vw } = textureSpan
-  const transformCoordinate = (coord: number, index: number) =>
-    index % 2 === 0
-      ? // u
-        u + coord * uw
-      : // v
-        v + coord * vw
-  const uvs = rectangleUvs.map(transformCoordinate)
-  const geometry = rectangleGeometry.clone().addAttribute('aUvs', uvs, 2)
-  const rectangle = new PIXI.Mesh(geometry, shader)
-  rectangle.position.set(position.x, position.y)
-  rectangle.width = 1
-  rectangle.height = 1
-
-  let sprite = new PIXI.Graphics()
-  sprite.beginFill(0xff0000)
-  sprite.drawRect(-0.5 * boxSize, -0.5 * boxSize, boxSize, boxSize)
-
-  return {
-    tag: 'box',
-    sprite: rectangle,
-    rigidBodyDesc: RigidBodyDesc.fixed().setTranslation(position.x, position.y),
-    colliderDesc: ColliderDesc.cuboid(0.5 * boxSize, 0.5 * boxSize)
-      .setActiveEvents(ActiveEvents.CONTACT_FORCE_EVENTS)
-      .setContactForceEventThreshold(100000),
-  }
-}
+const triangleShader = createTriangleShader(perlinNoiseTexture)
 
 const createTriangle = (vertices: [Vec2, Vec2, Vec2]): TriangleGameObject => {
   const position = new Vector2(0, 0)
@@ -212,28 +177,26 @@ const createTriangle = (vertices: [Vec2, Vec2, Vec2]): TriangleGameObject => {
     )
   }
 
+  const geometry = triangleGeometry(vertices)
+
+  const mesh = new Mesh(geometry, triangleShader)
+  mesh.zIndex = zIndex.terrain
+
   return {
     tag: 'triangle',
-    sprite: triangleGeometry(vertices, 1),
+    sprite: mesh,
     rigidBodyDesc: RigidBodyDesc.fixed().setTranslation(position.x, position.y),
     colliderDesc: colliderDesc,
   }
 }
 
-const triangleGeometry = (vertices: [Vec2, Vec2, Vec2], alpha: number) => {
-  const g = new PIXI.Graphics()
-  // g.addAt
-  g.alpha = alpha
-  // g.beginFill(getRandomColor())
-  g.beginFill(0x333333)
-  g.moveTo(...vertices[0])
-  g.lineTo(...vertices[1])
-  g.lineTo(...vertices[2])
-  g.closePath()
-  g.endFill()
-  return g
+const triangleGeometry = (vertices: [Vec2, Vec2, Vec2]) => {
+  const m = mean(vertices)
+  const textureCoord = textureCoordinateFromWorld(m)
+  return new PIXI.Geometry()
+    .addAttribute('aVertexPosition', vertices.flat(), 2)
+    .addAttribute('textureCoord', Array(3).fill(textureCoord).flat(), 2)
 }
-
 let gameObjects = [] as GameObject[]
 
 const addGameObjects = (newObjs: GameObject[]) => {
@@ -251,7 +214,7 @@ const addGameObjects = (newObjs: GameObject[]) => {
 //
 
 const lineWidth = 0.05
-const pointRadius = 0.1
+const pointRadius = 0.05
 const drawSegments = (
   vertices: [number, number][],
   segments: [number, number][],
@@ -268,27 +231,18 @@ const drawSegments = (
     line.moveTo(vertices[startVertex][0], vertices[startVertex][1])
     line.lineTo(vertices[endVertex][0], vertices[endVertex][1])
   }
+  line.zIndex = zIndex.debug
   pixiWorld.addChild(line)
 }
 
-const drawTriangles = (vertices: Vec2[], indices: Vec3[]) => {
-  for (let i = 0; i < indices.length - 1; i++) {
-    const vertexIndices = indices[i]
-    // console.log(triangle)
-    const vert1 = vertices[vertexIndices[0]]
-    const vert2 = vertices[vertexIndices[1]]
-    const vert3 = vertices[vertexIndices[2]]
-    pixiWorld.addChild(triangleGeometry([vert1, vert2, vert3], 0.2))
-  }
-}
-
-const drawPoints = (holes: [number, number][], color: number) => {
+const drawPoints = (points: Vec2[], pointRadius: number, color: number) => {
   let graphics = new PIXI.Graphics()
   graphics.beginFill(color)
-  for (let i = 0; i < holes.length; i++) {
-    graphics.drawCircle(holes[i][0], holes[i][1], pointRadius)
+  for (let i = 0; i < points.length; i++) {
+    graphics.drawCircle(points[i][0], points[i][1], pointRadius)
   }
   graphics.endFill()
+  graphics.zIndex = zIndex.debug
   pixiWorld.addChild(graphics)
 }
 
@@ -296,6 +250,16 @@ const drawPoints = (holes: [number, number][], color: number) => {
 const triangleArea = 0.2
 const triangleSide = Math.sqrt(triangleArea / 2)
 
+// const drawTriangles = (vertices: Vec2[], indices: Vec3[]) => {
+//   for (let i = 0; i < indices.length - 1; i++) {
+//     const vertexIndices = indices[i]
+//     // console.log(triangle)
+//     const vert1 = vertices[vertexIndices[0]]
+//     const vert2 = vertices[vertexIndices[1]]
+//     const vert3 = vertices[vertexIndices[2]]
+//     pixiWorld.addChild(triangleGeometry([vert1, vert2, vert3], 0.2))
+//   }
+// }
 // const debugShape: Shape = createDebugShape([10, 2])
 // const debugTriangles = await triangulate(debugShape, triangleArea)
 // drawSegments(debugShape.vertices, debugShape.segments, 0xff0000)
@@ -303,23 +267,29 @@ const triangleSide = Math.sqrt(triangleArea / 2)
 // drawTriangles(debugTriangles.vertices, debugTriangles.indices)
 
 const contourResult = contour(
-  perlinTextureDimensions.width,
-  perlinTextureDimensions.height,
+  perlinTextureDimensions.x,
+  perlinTextureDimensions.y,
   app.renderer.extract.pixels(perlinNoiseTexture),
 )
 
 const worldCoordinateFromContour = ([x, y]: Vec2) =>
   [
-    mapDimensions.width * ((x - 1) / perlinTextureDimensions.width - 0.5),
-    mapDimensions.height * ((y - 1) / perlinTextureDimensions.height - 1),
+    mapDimensions.width * ((x - 1) / perlinTextureDimensions.x - 0.5),
+    mapDimensions.height * ((y - 1) / perlinTextureDimensions.y - 1),
   ] as Vec2
+const textureCoordinateFromWorld = ([x, y]: Vec2) =>
+  [x / mapDimensions.width + 0.5, y / mapDimensions.height + 1] as Vec2
 
 const mapContour = contourResult.contours.map((path) =>
   path.map(worldCoordinateFromContour),
 )
-const mapHoles = contourResult.holes.map(worldCoordinateFromContour)
+const holeContour = contourResult.holes.map((path) =>
+  path.map(worldCoordinateFromContour),
+)
 
-const shapeFromContours = (paths: Vec2[][], holes: Vec2[]): Shape =>
+const calculateSegments = (
+  paths: Vec2[][],
+): Pick<Shape, 'vertices' | 'segments'> =>
   paths.reduce(
     (shape, path) => {
       // Calculate before we mutate shape
@@ -338,23 +308,28 @@ const shapeFromContours = (paths: Vec2[][], holes: Vec2[]): Shape =>
     {
       vertices: [],
       segments: [],
-      holes,
-    } as Shape,
+    } as Pick<Shape, 'vertices' | 'segments'>,
   )
 
 const filter = normalized1([1, 2, 1])
-const worldShape = shapeFromContours(
+const filterPath = (it: Vec2[]) =>
+  radialDistance(filterLoop(it, filter), 2 * triangleSide)
+// const filterPath = (it: Vec2[]) => radialDistance(filterLoop(it, filter), 2 * triangleSide)
+// const filterPath = identity
+
+const worldSegments = calculateSegments(
   mapContour.map(
-    (it) => douglasPeucker(filterLoop(it, filter), triangleSide / 10),
-    // (it) => it,
+    // identity,
+    filterPath,
   ),
-  mapHoles,
-  // mapContour.map((it: Vec2[]) =>
-  //   radialDistance(filterLoop(it, filter), triangleSide * 2),
-  // ),
 )
 
-const worldTriangles = await triangulate(worldShape, triangleArea)
+const holeSegments = calculateSegments(holeContour.map(filterPath))
+
+const worldTriangles = await triangulate(
+  { ...worldSegments, holes: holeSegments.vertices },
+  triangleArea,
+)
 // drawTriangles(worldTriangles.vertices, worldTriangles.indices)
 
 const createTriangles = (triangles: Triangles) =>
@@ -368,9 +343,11 @@ const createTriangles = (triangles: Triangles) =>
 
 // addGameObjects(createTriangles(debugTriangles))
 addGameObjects(createTriangles(worldTriangles))
-drawPoints(mapHoles, 0x00ff00)
-drawSegments(worldShape.vertices, worldShape.segments, 0xff0000)
-drawPoints(worldShape.vertices, 0xff0000)
+drawSegments(holeSegments.vertices, holeSegments.segments, 0x00ff00)
+drawPoints(holeSegments.vertices, 0.1, 0x00ff00)
+drawSegments(worldSegments.vertices, worldSegments.segments, 0xff0000)
+drawPoints(worldSegments.vertices, 0.1, 0xff0000)
+// drawPoints(mapContour[0], 0.1, 0xff0000)
 
 // Boxes
 // const horizontalBoxes = 20
@@ -391,12 +368,11 @@ drawPoints(worldShape.vertices, 0xff0000)
 //     ),
 //   ),
 // )
-
-// Listen for animate update
-app.ticker.add(() => {
+const updatePhysics = () => {
   let eventQueue = new EventQueue(true)
-  // Ste the simulation forward.
+  // Step the simulation forward.
   world.step(eventQueue)
+
   const handleCollision = (colliderHandle: number, forceMagniture: number) => {
     const gameObject = gameObjects.find(
       (it) => it.collider.handle === colliderHandle,
@@ -431,7 +407,26 @@ app.ticker.add(() => {
   playerSprite.rotation = playerCollider.rotation()
 
   pixiWorld.position.set(-playerPosition.x, -playerPosition.y)
-})
+}
+
+let timeSinceLastTick = 0
+const physicsDt = 1000 / 60
+const maxDt = 1000 / 30
+
+// Listen for animate update
+
+const loop = (then: number) => (now: number) => {
+  const dt = now - then
+
+  timeSinceLastTick = Math.min(timeSinceLastTick + dt, maxDt)
+  while (timeSinceLastTick > physicsDt) {
+    timeSinceLastTick -= physicsDt
+    updatePhysics()
+  }
+
+  requestAnimationFrame(loop(now))
+}
+requestAnimationFrame(loop(0))
 
 window.addEventListener('keydown', (event) => {
   switch (event.code) {
