@@ -61,6 +61,8 @@ void main() {
     float weight = perlins[i][1];
     color += weight * perlin(whiteNoise, vTextureCoord, vec2(size, aspectRatio * size));
   }
-
+  float ellipse = 1.0 - 2.0 * length(1.0 * vTextureCoord - vec2(0.5, 0.5));
+  float mask = smoothstep(-1.0, 1.0, 3.0 * ellipse);
+  color *= mask;
   fragColor = vec4(color, color, color, 1.0);
 }

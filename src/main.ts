@@ -311,10 +311,9 @@ const calculateSegments = (
     } as Pick<Shape, 'vertices' | 'segments'>,
   )
 
-const filter = normalized1([1, 2, 1])
+const filter = normalized1([1])
 const filterPath = (it: Vec2[]) =>
-  radialDistance(filterLoop(it, filter), 2 * triangleSide)
-// const filterPath = (it: Vec2[]) => radialDistance(filterLoop(it, filter), 2 * triangleSide)
+  radialDistance(filterLoop(it, filter), triangleSide)
 // const filterPath = identity
 
 const worldSegments = calculateSegments(
