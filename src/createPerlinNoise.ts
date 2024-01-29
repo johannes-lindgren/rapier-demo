@@ -11,16 +11,20 @@ const perlinNoiseFilter = (whiteNoiseTexture: Texture, dimensions: Vector) =>
     dimensions: dimensions,
     ...perlins([
       {
-        size: 0.3,
-        weight: 1,
+        size: 1,
+        weight: 0.01,
       },
       {
-        size: 0.1,
-        weight: 1,
+        size: 0.3,
+        weight: 0.5,
+      },
+      {
+        size: 0.3,
+        weight: 0.5,
       },
       {
         size: 0.05,
-        weight: 0.5,
+        weight: 0.2,
       },
     ]),
   })

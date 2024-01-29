@@ -26,21 +26,22 @@ import { createTriangleShader } from './createTriangleShader.ts'
 import { createDebugShape } from './createDebugShape.ts'
 import { identity } from './identity.ts'
 import { vector } from './vector.ts'
+import { createGrassTexture } from './createGrassTexture'
 
-//
-// Rapier
-//
+const debug = true
 
-const boxSize = 1
+// Map params
+const thresholdFill = 0.5
+const thresholdHole = 0.3
 
 // Use the Rapier module here.
 let gravity = {
   x: 0.0,
-  y: 0,
-  // y: -9.81,
+  y: debug ? 0 : -9.81,
 }
 let world = new Rapier.World(gravity)
 
+const playerRadius = 0.25
 // Create a dynamic rigid-body.
 let playerBody = world.createRigidBody(
   RigidBodyDesc.dynamic().setTranslation(0.0, 5.0).setLinearDamping(0.2),
@@ -48,7 +49,7 @@ let playerBody = world.createRigidBody(
 
 // Create a ball collider attached to the dynamic rigidBody.
 let playerCollider = world.createCollider(
-  ColliderDesc.ball(0.5).setFriction(0.9).setRestitution(1),
+  ColliderDesc.ball(playerRadius).setFriction(0.9).setRestitution(1),
   playerBody,
 )
 
@@ -66,13 +67,14 @@ viewport.addChild(pixiWorld)
 const handleResize = () => {
   const width = window.innerWidth
   const height = window.innerHeight
+
   // See 10 meters horizontally
-  const viewportWidth = 50
+  const viewportWidth = debug ? 50 : 10
 
   const scale = width / viewportWidth
   viewport.scale.set(scale, -scale)
   viewport.x = width / 2
-  viewport.y = height / 2
+  viewport.y = debug ? 0 : height / 2
 
   app.renderer.resize(width, height)
 }
@@ -104,8 +106,8 @@ playerSprite.anchor.set(0.5)
 playerSprite.x = 0
 playerSprite.y = 0
 playerSprite.zIndex = zIndex.player
-playerSprite.width = 1
-playerSprite.height = 1
+playerSprite.width = playerRadius * 2
+playerSprite.height = playerRadius * 2
 pixiWorld.addChild(playerSprite)
 
 const rectangleGeometry = new PIXI.Geometry()
@@ -142,25 +144,42 @@ const whiteNoiseTexture = createWhiteNoiseTexture(
     width: 1024,
     height: 1024,
   },
-  linspace(1, 4, 4),
+  [11, 0, 0, 0],
 )
 
 const aspectRatio = mapDimensions.width / mapDimensions.height
-const perlinTextureDimensions = vector(256, 256 / aspectRatio)
+const textureDimensions = vector(256, 256 / aspectRatio)
 const perlinNoiseTexture = createPerlinNoiseTexture(
   app.renderer,
-  perlinTextureDimensions,
+  textureDimensions,
   whiteNoiseTexture,
 )
+const grassTexture = createGrassTexture(
+  app.renderer,
+  textureDimensions,
+  perlinNoiseTexture,
+  thresholdFill,
+)
 
-const noiseSprite = PIXI.Sprite.from(perlinNoiseTexture, {})
-noiseSprite.anchor.set(0.5, 1)
-noiseSprite.width = mapDimensions.width
-noiseSprite.height = mapDimensions.height
-noiseSprite.zIndex = zIndex.background
-pixiWorld.addChild(noiseSprite)
+// const noiseSprite = PIXI.Sprite.from(perlinNoiseTexture, {})
+// noiseSprite.anchor.set(0.5, 1)
+// noiseSprite.width = mapDimensions.width
+// noiseSprite.height = mapDimensions.height
+// noiseSprite.zIndex = zIndex.debug
+// pixiWorld.addChild(noiseSprite)
+//
+// const grassSprite = PIXI.Sprite.from(grassTexture, {})
+// grassSprite.anchor.set(0.5, 1)
+// grassSprite.width = mapDimensions.width
+// grassSprite.height = mapDimensions.height
+// grassSprite.zIndex = zIndex.debug
+// pixiWorld.addChild(grassSprite)
 
-const triangleShader = createTriangleShader(perlinNoiseTexture)
+const triangleShader = createTriangleShader(
+  grassTexture,
+  textureDimensions,
+  thresholdFill,
+)
 
 const createTriangle = (vertices: [Vec2, Vec2, Vec2]): TriangleGameObject => {
   const position = new Vector2(0, 0)
@@ -192,10 +211,12 @@ const createTriangle = (vertices: [Vec2, Vec2, Vec2]): TriangleGameObject => {
 
 const triangleGeometry = (vertices: [Vec2, Vec2, Vec2]) => {
   const m = mean(vertices)
-  const textureCoord = textureCoordinateFromWorld(m)
+  const uniformUvs = Array(3).fill(textureCoordinateFromWorld(m)).flat()
+  const uvs = vertices.map(textureCoordinateFromWorld).flat()
   return new PIXI.Geometry()
     .addAttribute('aVertexPosition', vertices.flat(), 2)
-    .addAttribute('textureCoord', Array(3).fill(textureCoord).flat(), 2)
+    .addAttribute('aUvsUniform', uniformUvs, 2)
+    .addAttribute('aUvs', uvs, 2)
 }
 let gameObjects = [] as GameObject[]
 
@@ -248,7 +269,7 @@ const drawPoints = (points: Vec2[], pointRadius: number, color: number) => {
 
 // Draw triangles
 const triangleArea = 0.2
-const triangleSide = Math.sqrt(triangleArea / 2)
+const triangleSide = Math.sqrt(triangleArea * 2) / 2
 
 // const drawTriangles = (vertices: Vec2[], indices: Vec3[]) => {
 //   for (let i = 0; i < indices.length - 1; i++) {
@@ -267,15 +288,16 @@ const triangleSide = Math.sqrt(triangleArea / 2)
 // drawTriangles(debugTriangles.vertices, debugTriangles.indices)
 
 const contourResult = contour(
-  perlinTextureDimensions.x,
-  perlinTextureDimensions.y,
-  app.renderer.extract.pixels(perlinNoiseTexture),
+  textureDimensions,
+  app.renderer.extract.pixels(grassTexture),
+  thresholdFill,
+  thresholdHole,
 )
 
 const worldCoordinateFromContour = ([x, y]: Vec2) =>
   [
-    mapDimensions.width * ((x - 1) / perlinTextureDimensions.x - 0.5),
-    mapDimensions.height * ((y - 1) / perlinTextureDimensions.y - 1),
+    mapDimensions.width * ((x - 1) / textureDimensions.x - 0.5),
+    mapDimensions.height * ((y - 1) / textureDimensions.y - 1),
   ] as Vec2
 const textureCoordinateFromWorld = ([x, y]: Vec2) =>
   [x / mapDimensions.width + 0.5, y / mapDimensions.height + 1] as Vec2
@@ -340,14 +362,15 @@ const createTriangles = (triangles: Triangles) =>
     ]),
   )
 
-// addGameObjects(createTriangles(debugTriangles))
 addGameObjects(createTriangles(worldTriangles))
-drawSegments(holeSegments.vertices, holeSegments.segments, 0x00ff00)
-drawPoints(holeSegments.vertices, 0.1, 0x00ff00)
-drawSegments(worldSegments.vertices, worldSegments.segments, 0xff0000)
-drawPoints(worldSegments.vertices, 0.1, 0xff0000)
-// drawPoints(mapContour[0], 0.1, 0xff0000)
 
+// Debug lines
+if (debug) {
+  drawSegments(holeSegments.vertices, holeSegments.segments, 0x00ff00)
+  drawPoints(holeSegments.vertices, 0.1, 0x00ff00)
+  drawSegments(worldSegments.vertices, worldSegments.segments, 0xff0000)
+  drawPoints(worldSegments.vertices, 0.1, 0xff0000)
+}
 // Boxes
 // const horizontalBoxes = 20
 // const verticalBoxes = 20
@@ -428,21 +451,22 @@ const loop = (then: number) => (now: number) => {
 requestAnimationFrame(loop(0))
 
 window.addEventListener('keydown', (event) => {
+  const impulse = 1
   switch (event.code) {
     case 'KeyW': {
-      playerBody.applyImpulse({ x: 0.0, y: 3.0 }, true)
+      playerBody.applyImpulse({ x: 0.0, y: impulse }, true)
       break
     }
     case 'KeyS': {
-      playerBody.applyImpulse({ x: 0.0, y: -3.0 }, true)
+      playerBody.applyImpulse({ x: 0.0, y: -impulse }, true)
       break
     }
     case 'KeyA': {
-      playerBody.applyImpulse({ x: -2.0, y: 0.0 }, true)
+      playerBody.applyImpulse({ x: -impulse, y: 0.0 }, true)
       break
     }
     case 'KeyD': {
-      playerBody.applyImpulse({ x: 2.0, y: 0.0 }, true)
+      playerBody.applyImpulse({ x: impulse, y: 0.0 }, true)
       break
     }
   }

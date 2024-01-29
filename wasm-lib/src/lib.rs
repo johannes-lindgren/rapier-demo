@@ -67,18 +67,18 @@ impl World {
 // }
 
 #[wasm_bindgen]
-pub fn greet(width: usize, height: i32, data: &[u8]) -> World {
-    let threshold = 128u8;
-    let hole_threshold = threshold - 12;
+pub fn greet(width: usize, height: usize, threshold_fill_float: f32, threshold_hole_float: f32, data: &[u8]) -> World {
+    let threshold_fill = (threshold_fill_float * 255.0) as u8;
+    let threshold_hole = (threshold_hole_float * 255.0) as u8;
 
     let terrain_predicate = |&b: &u8|
-        if b >= threshold {
+        if b >= threshold_fill {
             1i8
         } else {
             0i8
         };
     let holes_predicate = |&b: &u8|
-        if b >= hole_threshold {
+        if b >= threshold_hole {
             0i8
         } else {
             1i8

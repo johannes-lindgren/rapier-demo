@@ -1,6 +1,7 @@
 import { greet } from 'wasm-lib'
 import { parseSvgPath } from './parseSvgPath/parseSvgPath.ts'
 import { Vec2, vec2sFromVec } from './vec.ts'
+import { Vector } from './vector.ts'
 
 export type ContourResult = {
   contours: Vec2[][]
@@ -8,12 +9,19 @@ export type ContourResult = {
 }
 
 export const contour = (
-  width: number,
-  height: number,
+  dimensions: Vector,
   pixels: Uint8Array,
+  thresholdFill: number,
+  thresholdHole: number,
 ): ContourResult => {
   // TODO call free
-  const world = greet(width, height, pixels)
+  const world = greet(
+    dimensions.x,
+    dimensions.y,
+    thresholdFill,
+    thresholdHole,
+    pixels,
+  )
   return {
     contours: parseSvgPath(world.path),
     holes: parseSvgPath(world.holes),
