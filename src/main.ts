@@ -6,29 +6,28 @@ import {
   EventQueue,
   RigidBodyDesc,
   RigidBodyType,
-  Vector,
   Vector2,
 } from '@dimforge/rapier2d'
 import * as PIXI from 'pixi.js'
-import { Container, Mesh, MIPMAP_MODES, Shader } from 'pixi.js'
-import { BoxGameObject, GameObject, TriangleGameObject } from './gameObject.ts'
-import regularVertex from './regular.vert?raw'
-import colorFrag from './color.frag?raw'
+import { Container, Mesh, MIPMAP_MODES } from 'pixi.js'
+import { GameObject, TriangleGameObject } from './gameObject.ts'
 import { filterLoop, linspace } from './linear-algebra.ts'
 import { createWhiteNoiseTexture } from './createWhiteNoiseTexture.ts'
 import { createPerlinNoiseTexture } from './createPerlinNoise.ts'
-import { Shape, Triangles, triangulate, Vec2, Vec3 } from './triangulate.ts'
+import { Shape, Triangles, triangulate, Vec2 } from './triangulate.ts'
 import { contour } from './contour.ts'
 import { mean, normalized1 } from './vec.ts'
-import { douglasPeucker, radialDistance } from './signal-processing'
+import { radialDistance } from './signal-processing'
 import { calculateZIndices } from './calculateZIndices.ts'
 import { createTriangleShader } from './createTriangleShader.ts'
-import { createDebugShape } from './createDebugShape.ts'
-import { identity } from './identity.ts'
 import { vector } from './vector.ts'
 import { createGrassTexture } from './createGrassTexture'
+import { OutlineFilter } from 'pixi-filters'
 
-const debug = true
+const debug = {
+  enabled: true,
+  wireframes: true,
+}
 
 // Map params
 const thresholdFill = 0.5
@@ -37,7 +36,7 @@ const thresholdHole = 0.3
 // Use the Rapier module here.
 let gravity = {
   x: 0.0,
-  y: debug ? 0 : -9.81,
+  y: debug.enabled ? 0 : -9.81,
 }
 let world = new Rapier.World(gravity)
 
@@ -62,6 +61,7 @@ const viewport = new Container()
 app.stage.addChild(viewport)
 const pixiWorld = new Container()
 pixiWorld.sortableChildren = true
+pixiWorld.filters = [new OutlineFilter(1, 0x333333, 1.0)]
 viewport.addChild(pixiWorld)
 
 const handleResize = () => {
@@ -69,12 +69,12 @@ const handleResize = () => {
   const height = window.innerHeight
 
   // See 10 meters horizontally
-  const viewportWidth = debug ? 50 : 10
+  const viewportWidth = debug.enabled ? 50 : 10
 
   const scale = width / viewportWidth
   viewport.scale.set(scale, -scale)
   viewport.x = width / 2
-  viewport.y = debug ? 0 : height / 2
+  viewport.y = debug.enabled ? 0 : height / 2
 
   app.renderer.resize(width, height)
 }
@@ -177,6 +177,7 @@ const grassTexture = createGrassTexture(
 
 const triangleShader = createTriangleShader(
   grassTexture,
+  whiteNoiseTexture,
   textureDimensions,
   thresholdFill,
 )
@@ -365,7 +366,7 @@ const createTriangles = (triangles: Triangles) =>
 addGameObjects(createTriangles(worldTriangles))
 
 // Debug lines
-if (debug) {
+if (debug.enabled && debug.wireframes) {
   drawSegments(holeSegments.vertices, holeSegments.segments, 0x00ff00)
   drawPoints(holeSegments.vertices, 0.1, 0x00ff00)
   drawSegments(worldSegments.vertices, worldSegments.segments, 0xff0000)

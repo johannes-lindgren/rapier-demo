@@ -3,6 +3,7 @@
 precision mediump float;
 
 uniform sampler2D heightMap;
+uniform sampler2D whiteNoise;
 uniform vec2 dimensions;
 uniform float threshold;
 
@@ -11,7 +12,6 @@ out vec4 fragColor;
 in vec2 vUvsUniform;
 // uniform coordinate for all fragments
 in vec2 vUvs;
-
 
 // TODO calculate from perlin noise instead
 vec4 textureAt(sampler2D tex, vec2 uv){
@@ -52,7 +52,7 @@ void main() {
 
   if(g.y > .0){
     // grass
-    fragColor = vec4(0.0, rock, 0.0, 1.0);
+    fragColor = vec4(rock * vec3(0.3, 0.9, 0.4), 1.0) + 0.02 * texture(whiteNoise, vUvs);
   } else {
     // rock
     fragColor = vec4(rock, rock, rock, 1.0);
