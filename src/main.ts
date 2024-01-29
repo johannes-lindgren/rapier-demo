@@ -74,7 +74,7 @@ const handleResize = () => {
   const scale = width / viewportWidth
   viewport.scale.set(scale, -scale)
   viewport.x = width / 2
-  viewport.y = debug.enabled ? 0 : height / 2
+  viewport.y = debug.enabled ? height / 10 : height / 2
 
   app.renderer.resize(width, height)
 }
@@ -396,6 +396,7 @@ const updatePhysics = () => {
   // Step the simulation forward.
   world.step(eventQueue)
 
+  const freed = [] as GameObject[]
   const handleCollision = (colliderHandle: number, forceMagniture: number) => {
     const gameObject = gameObjects.find(
       (it) => it.collider.handle === colliderHandle,
@@ -405,11 +406,13 @@ const updatePhysics = () => {
     }
 
     gameObject.rigidBody.setBodyType(RigidBodyType.Dynamic, true)
+    freed.push(freed)
   }
   eventQueue.drainContactForceEvents((event) => {
     handleCollision(event.collider1(), event.totalForceMagnitude())
     handleCollision(event.collider2(), event.totalForceMagnitude())
   })
+  console.log('freed', freed)
 
   gameObjects.forEach((it) => {
     const pos = it.collider.translation()
