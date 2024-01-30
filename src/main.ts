@@ -31,6 +31,7 @@ import { OutlineFilter } from 'pixi-filters'
 import { pseudoRandomColor, randomColor } from './randomColor.ts'
 import { groupTriangles } from './groupTriangles.ts'
 import { v4 as randomUuid } from 'uuid'
+import { groupBy } from 'lodash'
 
 const debug = {
   enabled: true,
@@ -509,7 +510,7 @@ const updatePhysics = () => {
   // Step the simulation forward.
   world.step(eventQueue)
 
-  const freeds = [] as TriangleGameObject[]
+  const trianglesHit = [] as TriangleGameObject[]
   const handleCollision = (colliderHandle: number, forceMagniture: number) => {
     const gameObject = gameObjects.find(
       (it) => it.collider.handle === colliderHandle,
@@ -520,17 +521,54 @@ const updatePhysics = () => {
 
     if (gameObject.tag === 'triangle') {
       gameObject.rigidBody.setBodyType(RigidBodyType.Dynamic, true)
-      freeds.push(gameObject)
+      trianglesHit.push(gameObject)
     }
   }
   eventQueue.drainContactForceEvents((event) => {
     handleCollision(event.collider1(), event.totalForceMagnitude())
     handleCollision(event.collider2(), event.totalForceMagnitude())
   })
-  freeds.forEach((freedObj) => {
+  Object.entries(groupBy(trianglesHit, 'groupId')).map(
+    ([oldGroupId, freedTriangles]) => {
+      const nonFreedTriangles = groups[oldGroupId].filter(
+        (triangleInExistinGroup) =>
+          !freedTriangles.includes(triangleInExistinGroup),
+      )
+      const newGroups = [
+        ...groupTriangles(nonFreedTriangles),
+        // Every triangle that was hit gets its own group
+        ...freedTriangles.map((it) => [it]),
+      ]
+      // Delete the existing group
+      delete groups[oldGroupId]
+      // Create new groups
+      newGroups.forEach((triangles) => {
+        // Assign all triangles in this list to a common group
+        const newGroupId = randomUuid()
+        triangles.forEach((triangle) => {
+          triangle.groupId = newGroupId
+
+          const oldDebugDisplayObject = triangle.debugDisplayObject
+          const newDebugDisplayObject = triangleMesh(
+            triangle.vertices,
+            pseudoRandomColor(newGroupId),
+          )
+
+          triangle.debugDisplayObject = newDebugDisplayObject
+          pixiWorld.removeChild(oldDebugDisplayObject)
+          pixiWorld.addChild(newDebugDisplayObject)
+        })
+        groups[newGroupId] = triangles
+      })
+    },
+  )
+  trianglesHit.forEach((freedObj) => {
     const oldGroupId = freedObj.groupId
     const newGroupId = randomUuid()
 
+    // groupTriangles(groups[oldGroupId]).forEach((triangle) => {
+    //
+    // })
     // Remove from group
     groups[oldGroupId] = groups[oldGroupId].filter((obj) => obj !== freedObj)
 
@@ -539,12 +577,14 @@ const updatePhysics = () => {
     freedObj.groupId = newGroupId
 
     // New debug mesh
-    freedObj.debugDisplayObject = triangleMesh(
+    const oldDebugDisplayObject = freedObj.debugDisplayObject
+    const newDebugDisplayObject = triangleMesh(
       freedObj.vertices,
       pseudoRandomColor(newGroupId),
     )
-    pixiWorld.removeChild(freedObj.debugDisplayObject)
-    pixiWorld.addChild(freedObj.debugDisplayObject)
+    pixiWorld.removeChild(oldDebugDisplayObject)
+    freedObj.debugDisplayObject = newDebugDisplayObject
+    pixiWorld.addChild(newDebugDisplayObject)
 
     groups[oldGroupId]
   })
