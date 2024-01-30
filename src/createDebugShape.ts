@@ -1,6 +1,6 @@
-import { Shape, Vec2 } from './triangulate.ts'
+import { TriangulationInput, Vec2 } from './triangulate.ts'
 
-export const createDebugShape = (position: Vec2): Shape => {
+export const createDebugShape = (position: Vec2): TriangulationInput => {
   // outer
   const outerVertices: Vec2[] = [
     // x, y

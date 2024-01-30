@@ -1,10 +1,10 @@
 import Triangle from 'triangle-wasm'
-import { chunk, transform } from 'lodash'
+import { chunk } from 'lodash'
 
 export type Vec2 = [number, number]
 export type Vec3 = [number, number, number]
 
-export type Shape = {
+export type TriangulationInput = {
   vertices: Vec2[]
   segments: Vec2[]
   holes: Vec2[]
@@ -15,7 +15,10 @@ export type Triangles = {
   indices: Vec3[]
 }
 
-export const triangulate = async (shape: Shape, area: number) => {
+export const triangulate = async (
+  shape: TriangulationInput,
+  area: number,
+): Promise<Triangles> => {
   await Triangle.init('/triangle.out.wasm')
 
   const data = {

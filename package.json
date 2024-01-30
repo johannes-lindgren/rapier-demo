@@ -18,7 +18,8 @@
     "@pixi/filter-noise": "^7.3.3",
     "lodash": "^4.17.21",
     "parse-svg-path": "^0.1.2",
-    "pixi-filters": "^5.2.1"
+    "pixi-filters": "^5.2.1",
+    "uuid": "^9.0.1"
   },
   "devDependencies": {
     "vitest": "^1.2.1",

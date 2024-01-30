@@ -8,6 +8,7 @@ import {
 
 export type BoxGameObject = {
   tag: 'box'
+  debugDisplayObject: DisplayObject
   sprite: DisplayObject
   colliderDesc: ColliderDesc
   rigidBodyDesc: RigidBodyDesc
@@ -17,11 +18,13 @@ export type BoxGameObject = {
 
 export type TriangleGameObject = {
   tag: 'triangle'
+  debugDisplayObject: DisplayObject
   sprite: DisplayObject
   colliderDesc: ColliderDesc
   rigidBodyDesc: RigidBodyDesc
   rigidBody: RigidBody
   collider: Collider
+  groupId: string
 }
 
 export type GameObject = BoxGameObject | TriangleGameObject

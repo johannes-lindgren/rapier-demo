@@ -8,12 +8,14 @@ export type Vec2 = Tuple2<number>
 export type Vec3 = Tuple3<number>
 export type Vec4 = Tuple4<number>
 
-export const sum = (v: Vec) => {
-  let acc = 0
-  for (let x of v) {
-    acc += x
+export const add = (v1: Vec2, v2: Vec2): Vec2 => [v1[0] + v2[0], v1[1] + v2[1]]
+
+export const scale = <T extends Vec>(vec: T, scalar: number): T => {
+  let out = new Array(vec.length)
+  for (let i = 0; i < vec.length; i++) {
+    out[i] = vec[i] * scalar
   }
-  return acc
+  return out as T
 }
 
 export const mean = (vecs: Vec2[]): Vec2 => {
@@ -26,6 +28,14 @@ export const mean = (vecs: Vec2[]): Vec2 => {
   x /= vecs.length
   y /= vecs.length
   return [x, y]
+}
+
+export const sum = (v: Vec) => {
+  let acc = 0
+  for (let x of v) {
+    acc += x
+  }
+  return acc
 }
 
 /**
