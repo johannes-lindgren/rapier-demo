@@ -36,6 +36,7 @@ import { groupBy } from 'lodash'
 const debug = {
   enabled: true,
   wireframes: true,
+  weightlessness: false,
 }
 
 // Map params
@@ -45,7 +46,7 @@ const thresholdHole = 0.3
 // Use the Rapier module here.
 let gravity = {
   x: 0.0,
-  y: debug.enabled ? 0 : -9.81,
+  y: debug.enabled && debug.weightlessness ? 0 : -9.81,
 }
 let world = new Rapier.World(gravity)
 
@@ -520,7 +521,6 @@ const updatePhysics = () => {
     }
 
     if (gameObject.tag === 'triangle') {
-      gameObject.rigidBody.setBodyType(RigidBodyType.Dynamic, true)
       trianglesHit.push(gameObject)
     }
   }
@@ -559,6 +559,12 @@ const updatePhysics = () => {
           pixiWorld.addChild(newDebugDisplayObject)
         })
         groups[newGroupId] = triangles
+
+        if (triangles.length < 20) {
+          triangles.forEach((triangle) => {
+            triangle.rigidBody.setBodyType(RigidBodyType.Dynamic, true)
+          })
+        }
       })
     },
   )
