@@ -206,8 +206,8 @@ const triangleMesh = (vertices: Tuple3<Vec2>, color: number) => {
 
 const createTriangle = (
   vertices: [Vec2, Vec2, Vec2],
-  groupId: string,
-): TriangleGameObject => {
+  indices: Vec3,
+): Omit<TriangleGameObject, 'debugDisplayObject' | 'groupId'> => {
   const position = new Vector2(0, 0)
 
   const colliderDesc = ColliderDesc.convexPolyline(
@@ -227,14 +227,11 @@ const createTriangle = (
   const mesh = new Mesh(geometry, triangleShader)
   mesh.zIndex = zIndex.terrain
 
-  const debugObj = triangleMesh(vertices, pseudoRandomColor(groupId))
-
   return {
     tag: 'triangle',
-    groupId,
-    debugDisplayObject: debugObj,
-    // For debug purposes
+    indices,
     vertices,
+    // For debug purposes
     sprite: mesh,
     rigidBodyDesc: RigidBodyDesc.fixed().setTranslation(position.x, position.y),
     colliderDesc: colliderDesc,
@@ -431,28 +428,33 @@ const worldTriangles = await Promise.all(
   ),
 )
 
-const createTriangles = (triangles: Triangles, id: string) =>
-  triangles.indices.map(([i1, i2, i3]) =>
-    createTriangle(
+const createTriangles = (triangles: Triangles) =>
+  triangles.indices.map((indices) => {
+    const [i1, i2, i3] = indices
+    return createTriangle(
       [triangles.vertices[i1], triangles.vertices[i2], triangles.vertices[i3]],
-      id,
-    ),
-  )
-
-worldTriangles.forEach((triangles) => {
-  groupTriangles(triangles.indices).forEach((indices) => {
-    addGameObjects(
-      createTriangles(
-        {
-          vertices: triangles.vertices,
-          indices,
-        },
-        randomUuid(),
-      ),
+      indices,
     )
-    // pixiWorld.addChild(debugTriangles(t, getRandomColor()))
   })
-})
+
+worldTriangles
+  .map((triangles) => createTriangles(triangles))
+  .flatMap(groupTriangles)
+  .map((triangles) => {
+    const groupId = randomUuid()
+    return triangles.map((triangle) => {
+      const debugDisplayObject = triangleMesh(
+        triangle.vertices,
+        pseudoRandomColor(groupId),
+      )
+      return {
+        ...triangle,
+        groupId,
+        debugDisplayObject,
+      } as TriangleGameObject
+    })
+  })
+  .forEach(addGameObjects)
 
 // Debug lines
 if (debug.enabled && debug.wireframes) {

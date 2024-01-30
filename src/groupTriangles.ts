@@ -1,5 +1,5 @@
-import { Triangles, Vec2 } from './triangulate.ts'
-import { sum, Vec, Vec3 } from './vec.ts'
+import { Vec2 } from './triangulate.ts'
+import { Vec3 } from './vec.ts'
 
 type GroupedTriangles = {
   vertices: Vec2[]
@@ -51,15 +51,15 @@ export const areTrianglesJoined = (indices1: Vec3, indices2: Vec3): boolean => {
   return identical >= 2
 }
 
-const splitGroup = (indices: Vec3[]): [Vec3[], Vec3[]] => {
-  const group = [indices[0]] as Vec3[]
-  let left = indices.slice(1)
+const splitGroup = <T extends Triangle>(triangles: T[]): [T[], T[]] => {
+  const group = [triangles[0]] as T[]
+  let left = triangles.slice(1)
   let groupIndex = 0
   while (groupIndex < group.length) {
     const currentTriangle = group[groupIndex]
-    let nextLeft = [] as Vec3[]
+    let nextLeft = [] as T[]
     for (let i = 0; i < left.length; i++) {
-      if (areTrianglesJoined(currentTriangle, left[i])) {
+      if (areTrianglesJoined(currentTriangle.indices, left[i].indices)) {
         group.push(left[i])
       } else {
         nextLeft.push(left[i])
@@ -71,9 +71,12 @@ const splitGroup = (indices: Vec3[]): [Vec3[], Vec3[]] => {
   return [group, left]
 }
 
-export const groupTriangles = (indices: Vec3[]): Vec3[][] => {
-  const groups = [] as Vec3[][]
-  let left = indices
+export type Triangle = {
+  indices: Vec3
+}
+export const groupTriangles = <T extends Triangle>(triangle: T[]): T[][] => {
+  const groups = [] as T[][]
+  let left = triangle
   while (left.length > 0) {
     const [group, nextLeft] = splitGroup(left)
     groups.push(group)
