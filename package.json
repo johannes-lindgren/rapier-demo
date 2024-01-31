@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "test": "vitest",
-    "build:wasm": "wasm-pack build",
+    "build:wasm-lib": "wasm-pack build wasm-lib",
     "build": "vite build",
     "preview": "vite preview"
   },
