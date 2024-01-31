@@ -44,6 +44,10 @@ import { areTrianglesJoined, groupTriangles } from './groupTriangles.ts'
 import { v4 as randomUuid } from 'uuid'
 import { groupBy } from 'lodash'
 
+/*
+ * Configration
+ */
+
 const debug = {
   enabled: false,
   wireframes: true,
@@ -51,8 +55,18 @@ const debug = {
 }
 
 // Map params
+// const seed = 11
+const seed = Math.random()
 const thresholdFill = 0.55
 const thresholdHole = 0.3
+
+// Physics
+const makeGroupDynamicThreshold = 30
+const breakThreshold = 40
+
+/*
+ * Init game
+ */
 
 // Use the Rapier module here.
 let gravity = {
@@ -77,7 +91,7 @@ let playerCollider = world.createCollider(
 )
 
 const app = new PIXI.Application({
-  background: '#1099bb',
+  background: '#30aacc',
 })
 document.body.appendChild(app.view)
 
@@ -93,7 +107,7 @@ const handleResize = () => {
   const height = window.innerHeight
 
   // See 10 meters horizontally
-  const viewportWidth = debug.enabled ? 30 : 10
+  const viewportWidth = debug.enabled ? 30 : 15
 
   const scale = width / viewportWidth
   viewport.scale.set(scale, -scale)
@@ -168,7 +182,7 @@ const whiteNoiseTexture = createWhiteNoiseTexture(
     width: 1024,
     height: 1024,
   },
-  [11, 0, 0, 0],
+  [seed, 0, 0, 0],
 )
 
 const aspectRatio = mapDimensions.width / mapDimensions.height
@@ -227,7 +241,7 @@ const createTriangle = (
     new Float32Array(vertices.flat()),
   )
     ?.setActiveEvents(ActiveEvents.CONTACT_FORCE_EVENTS)
-    ?.setContactForceEventThreshold(40)
+    ?.setContactForceEventThreshold(breakThreshold)
 
   if (!colliderDesc) {
     throw new Error(
@@ -573,7 +587,6 @@ const updatePhysics = () => {
         })
         groups[newGroupId] = triangles
 
-        const makeGroupDynamicThreshold = 40
         if (triangles.length < makeGroupDynamicThreshold) {
           // Create joints between all triangles in the group and make the individual triangle bodies dynamic
 
