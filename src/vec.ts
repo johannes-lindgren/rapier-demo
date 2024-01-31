@@ -1,6 +1,4 @@
-import { chunk } from 'lodash'
 import { zeros } from './linear-algebra.ts'
-import { n } from 'vitest/dist/reporters-rzC174PQ'
 
 export type Tuple2<T> = [T, T]
 export type Tuple3<T> = [T, T, T]

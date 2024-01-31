@@ -45,7 +45,7 @@ import { v4 as randomUuid } from 'uuid'
 import { groupBy } from 'lodash'
 
 const debug = {
-  enabled: true,
+  enabled: false,
   wireframes: true,
   weightlessness: true,
 }
@@ -252,7 +252,7 @@ const createTriangle = (
 }
 
 const triangleGeometry = (vertices: [Vec2, Vec2, Vec2]) => {
-  const m = centroid(vertices)
+  const m = centroid(...vertices)
   const uniformUvs = Array(3).fill(textureCoordinateFromWorld(m)).flat()
   const uvs = vertices.map(textureCoordinateFromWorld).flat()
   return new PIXI.Geometry()
@@ -269,7 +269,7 @@ const addGameObjects = (newObjs: GameObject[]) => {
   gameObjects = [...gameObjects, ...newObjs]
   newObjs.forEach((it) => {
     pixiWorld.addChild(it.sprite)
-    if (it.debugDisplayObject) {
+    if (debug.enabled && it.debugDisplayObject) {
       pixiWorld.addChild(it.debugDisplayObject)
     }
     const ridigBody = world.createRigidBody(it.rigidBodyDesc)
@@ -559,19 +559,22 @@ const updatePhysics = () => {
         triangles.forEach((triangle) => {
           triangle.groupId = newGroupId
 
-          const oldDebugDisplayObject = triangle.debugDisplayObject
-          const newDebugDisplayObject = triangleMesh(
-            triangle.vertices,
-            pseudoRandomColor(newGroupId),
-          )
+          if (debug.enabled) {
+            const oldDebugDisplayObject = triangle.debugDisplayObject
+            const newDebugDisplayObject = triangleMesh(
+              triangle.vertices,
+              pseudoRandomColor(newGroupId),
+            )
 
-          triangle.debugDisplayObject = newDebugDisplayObject
-          pixiWorld.removeChild(oldDebugDisplayObject)
-          pixiWorld.addChild(newDebugDisplayObject)
+            triangle.debugDisplayObject = newDebugDisplayObject
+            pixiWorld.removeChild(oldDebugDisplayObject)
+            pixiWorld.addChild(newDebugDisplayObject)
+          }
         })
         groups[newGroupId] = triangles
 
-        if (triangles.length < 20) {
+        const makeGroupDynamicThreshold = 40
+        if (triangles.length < makeGroupDynamicThreshold) {
           // Create joints between all triangles in the group and make the individual triangle bodies dynamic
 
           // TODO if the old group was dynamic, remove existing joints and create new.
@@ -594,7 +597,6 @@ const updatePhysics = () => {
 
                   const closest = centroid(leftPos, rightPos)
                   // If they are next to each other, join them
-                  console.log('pos', sub(leftPos, rightPos))
                   const params = JointData.fixed(
                     vecXy(sub(closest, sub(leftPos, rightPos))),
                     // left.rigidBody.rotation(),
@@ -603,6 +605,7 @@ const updatePhysics = () => {
                     // right.rigidBody.rotation(),
                     0,
                   )
+                  // TODO save joint so that we can break it
                   const joint = world.createImpulseJoint(
                     params,
                     left.rigidBody,
@@ -620,32 +623,6 @@ const updatePhysics = () => {
       })
     },
   )
-  trianglesHit.forEach((freedObj) => {
-    const oldGroupId = freedObj.groupId
-    const newGroupId = randomUuid()
-
-    // groupTriangles(groups[oldGroupId]).forEach((triangle) => {
-    //
-    // })
-    // Remove from group
-    groups[oldGroupId] = groups[oldGroupId].filter((obj) => obj !== freedObj)
-
-    // Assign new groupId
-    groups[newGroupId] = [freedObj]
-    freedObj.groupId = newGroupId
-
-    // New debug mesh
-    const oldDebugDisplayObject = freedObj.debugDisplayObject
-    const newDebugDisplayObject = triangleMesh(
-      freedObj.vertices,
-      pseudoRandomColor(newGroupId),
-    )
-    pixiWorld.removeChild(oldDebugDisplayObject)
-    freedObj.debugDisplayObject = newDebugDisplayObject
-    pixiWorld.addChild(newDebugDisplayObject)
-
-    groups[oldGroupId]
-  })
 
   gameObjects.forEach((it) => {
     const pos = it.collider.translation()

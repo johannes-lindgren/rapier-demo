@@ -47,8 +47,8 @@ void main() {
   vec2 g = grad();
 
   vec4 terrain = texture(heightMap, vUvs);
+  float rock = texture(heightMap, vUvsUniform)[0];
   float material = terrain[1];
-  float rock = texture(heightMap, vUvsUniform).r;
 
   if(g.y > .0){
     // grass
