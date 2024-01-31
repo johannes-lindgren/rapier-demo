@@ -1,6 +1,6 @@
-import { Vec2 } from './vec.ts'
+import { Vec, Vec2 } from './vec.ts'
 
-export const zeros = (n: number) => {
+export const zeros = (n: number): Vec => {
   const arr = new Array(n)
   for (let i = 0; i < arr.length; i++) {
     arr[i] = 0

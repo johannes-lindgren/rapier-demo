@@ -4,8 +4,10 @@ import {
   ActiveEvents,
   ColliderDesc,
   EventQueue,
+  JointData,
   RigidBodyDesc,
   RigidBodyType,
+  ShapeContact,
   Vector2,
 } from '@dimforge/rapier2d'
 import * as PIXI from 'pixi.js'
@@ -21,7 +23,16 @@ import {
   Vec2,
 } from './triangulate.ts'
 import { contour } from './contour.ts'
-import { add, mean, normalized1, scale, Tuple3, Vec3 } from './vec.ts'
+import {
+  centroid,
+  normalized1,
+  origo,
+  sub,
+  Tuple3,
+  vec2,
+  Vec3,
+  vecXy,
+} from './vec.ts'
 import { radialDistance } from './signal-processing'
 import { calculateZIndices } from './calculateZIndices.ts'
 import { createTriangleShader } from './createTriangleShader.ts'
@@ -29,14 +40,14 @@ import { vector } from './vector.ts'
 import { createGrassTexture } from './createGrassTexture'
 import { OutlineFilter } from 'pixi-filters'
 import { pseudoRandomColor, randomColor } from './randomColor.ts'
-import { groupTriangles } from './groupTriangles.ts'
+import { areTrianglesJoined, groupTriangles } from './groupTriangles.ts'
 import { v4 as randomUuid } from 'uuid'
 import { groupBy } from 'lodash'
 
 const debug = {
   enabled: true,
   wireframes: true,
-  weightlessness: false,
+  weightlessness: true,
 }
 
 // Map params
@@ -241,7 +252,7 @@ const createTriangle = (
 }
 
 const triangleGeometry = (vertices: [Vec2, Vec2, Vec2]) => {
-  const m = mean(vertices)
+  const m = centroid(vertices)
   const uniformUvs = Array(3).fill(textureCoordinateFromWorld(m)).flat()
   const uvs = vertices.map(textureCoordinateFromWorld).flat()
   return new PIXI.Geometry()
@@ -561,6 +572,47 @@ const updatePhysics = () => {
         groups[newGroupId] = triangles
 
         if (triangles.length < 20) {
+          // Create joints between all triangles in the group and make the individual triangle bodies dynamic
+
+          // TODO if the old group was dynamic, remove existing joints and create new.
+          //  Thus, this if statement should be removed.
+          if (triangles[0].rigidBody.isFixed()) {
+            // For every combination of triangles in the group
+            for (let i = 0; i < triangles.length; i++) {
+              const left = triangles[i]
+
+              // This will run for every object
+              left.rigidBody.setBodyType(RigidBodyType.Dynamic, true)
+
+              for (let j = i + 1; j < triangles.length; j++) {
+                // This will run for every combination
+                const right = triangles[j]
+
+                if (areTrianglesJoined(left.indices, right.indices)) {
+                  const leftPos = vec2(left.rigidBody.localCom())
+                  const rightPos = vec2(right.rigidBody.localCom())
+
+                  const closest = centroid(leftPos, rightPos)
+                  // If they are next to each other, join them
+                  console.log('pos', sub(leftPos, rightPos))
+                  const params = JointData.fixed(
+                    vecXy(sub(closest, sub(leftPos, rightPos))),
+                    // left.rigidBody.rotation(),
+                    0,
+                    vecXy(sub(closest, sub(leftPos, rightPos))),
+                    // right.rigidBody.rotation(),
+                    0,
+                  )
+                  const joint = world.createImpulseJoint(
+                    params,
+                    left.rigidBody,
+                    right.rigidBody,
+                    true,
+                  )
+                }
+              }
+            }
+          }
           triangles.forEach((triangle) => {
             triangle.rigidBody.setBodyType(RigidBodyType.Dynamic, true)
           })
