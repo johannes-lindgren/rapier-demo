@@ -7,7 +7,7 @@
     "dev": "vite",
     "test": "vitest",
     "build:wasm-lib": "wasm-pack build wasm-lib",
-    "build": "vite build",
+    "build": "yarn build:wasm-lib && vite build",
     "preview": "vite preview"
   },
   "workspaces": ["wasm-lib/pkg"],
@@ -28,6 +28,7 @@
     "vite": "^5.0.8",
     "vite-plugin-top-level-await": "1.4.1",
     "vite-plugin-wasm": "3.3.0",
-    "@types/lodash": "^4.14.202"
+    "@types/lodash": "^4.14.202",
+    "wasm-pack": "^0.12.1"
   }
 }
