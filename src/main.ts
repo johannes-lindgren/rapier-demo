@@ -172,9 +172,12 @@ let feetCollider = world.createCollider(
 )
 
 // create a new Sprite from an image path
-const playerSprite = PIXI.Sprite.from('/player_512.png', {
-  mipmap: MIPMAP_MODES.POW2,
-})
+const playerSprite = PIXI.Sprite.from(
+  `${import.meta.env.BASE_URL}/player_512.png`,
+  {
+    mipmap: MIPMAP_MODES.POW2,
+  },
+)
 // center the sprite's anchor point
 playerSprite.anchor.set(0.5)
 // move the sprite to the center of the screen
