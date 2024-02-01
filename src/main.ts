@@ -5,6 +5,7 @@ import {
   ColliderDesc,
   EventQueue,
   JointData,
+  Ray,
   RigidBodyDesc,
   RigidBodyType,
   ShapeContact,
@@ -24,11 +25,23 @@ import {
 } from './triangulate.ts'
 import { contour } from './contour.ts'
 import {
+  add,
   centroid,
+  div,
+  dot,
+  down,
+  left,
+  neg,
+  norm2,
   normalized1,
+  normalized2,
   origo,
+  project,
+  right,
+  scale,
   sub,
   Tuple3,
+  up,
   vec2,
   Vec3,
   vecXy,
@@ -43,6 +56,8 @@ import { pseudoRandomColor, randomColor } from './randomColor.ts'
 import { areTrianglesJoined, groupTriangles } from './groupTriangles.ts'
 import { v4 as randomUuid } from 'uuid'
 import { groupBy } from 'lodash'
+import { keyDownTracker, Key } from './keyDownTracker.ts'
+import { createArrow } from './createArrow.ts'
 
 /*
  * Configration
@@ -56,39 +71,44 @@ const debug = {
 
 // Map params
 // const seed = 11
-const seed = Math.random()
+// const seed = Math.random()
+const seed = 110
 const thresholdFill = 0.55
 const thresholdHole = 0.3
 
 // Physics
 const makeGroupDynamicThreshold = 30
-const breakThreshold = 40
+const breakThreshold = 100
+const gravity: Vec2 = [0, -9.82]
+
+// Player controller
+const playerRadius = 0.25
+const maxClimbAngle = 70
+const minSlideAngle = 20
+const walkK = 0.01
+const jumpK = 0.01
+const autoStepMaxHeight = playerRadius
+const autoStepMinWidth = playerRadius
 
 /*
  * Init game
  */
 
 // Use the Rapier module here.
-let gravity = {
-  x: 0.0,
-  y: debug.enabled && debug.weightlessness ? 0 : -9.81,
-}
-let world = new Rapier.World(gravity)
-
-const playerRadius = 0.25
-// Create a dynamic rigid-body.
-let playerBody = world.createRigidBody(
-  RigidBodyDesc.dynamic()
-    .setTranslation(0.0, 5.0)
-    .setLinearDamping(1)
-    .setAngularDamping(1),
+const world = new Rapier.World(
+  vecXy(debug.enabled && debug.weightlessness ? origo : gravity),
 )
 
-// Create a ball collider attached to the dynamic rigidBody.
-let playerCollider = world.createCollider(
-  ColliderDesc.ball(playerRadius).setFriction(0.9).setRestitution(1),
-  playerBody,
+const characterControllerOffset = 0.01
+const characterController = world.createCharacterController(
+  characterControllerOffset,
 )
+// Don’t allow climbing slopes larger than 45 degrees.
+characterController.setMaxSlopeClimbAngle((maxClimbAngle * Math.PI) / 180)
+// Automatically slide down on slopes smaller than 30 degrees.
+characterController.setMinSlopeSlideAngle((minSlideAngle * Math.PI) / 180)
+characterController.enableSnapToGround(0.1)
+characterController.enableAutostep(autoStepMaxHeight, autoStepMinWidth, true)
 
 const app = new PIXI.Application({
   background: '#30aacc',
@@ -134,6 +154,23 @@ const mapDimensions = {
   height: 40,
 }
 
+// Create a dynamic rigid-body.
+let playerBody = world.createRigidBody(
+  RigidBodyDesc.dynamic()
+    .setTranslation(0.0, 5.0)
+    .setLinearDamping(1)
+    .setAngularDamping(1),
+)
+
+// Create a ball collider attached to the dynamic rigidBody.
+let playerCollider = world.createCollider(
+  ColliderDesc.ball(playerRadius).setFriction(0.9).setRestitution(0),
+  playerBody,
+)
+let feetCollider = world.createCollider(
+  ColliderDesc.ball(playerRadius * 0.5).setSensor(true),
+)
+
 // create a new Sprite from an image path
 const playerSprite = PIXI.Sprite.from('/player_512.png', {
   mipmap: MIPMAP_MODES.POW2,
@@ -147,6 +184,11 @@ playerSprite.zIndex = zIndex.player
 playerSprite.width = playerRadius * 2
 playerSprite.height = playerRadius * 2
 pixiWorld.addChild(playerSprite)
+
+const playerFeetNormal = createArrow()
+pixiWorld.addChild(playerFeetNormal)
+const playerDirectionArrow = createArrow()
+// pixiWorld.addChild(playerDirectionArrow)
 
 const rectangleGeometry = new PIXI.Geometry()
   .addAttribute(
@@ -531,13 +573,36 @@ if (debug.enabled && debug.wireframes) {
 //   )
 // })
 
-const updatePhysics = () => {
+const isKeyDown = keyDownTracker()
+
+const desiredTranslation = (isKeyDown: (key: Key) => boolean): Vec2 => {
+  let translation = origo
+  // if (isKeyDown(Key.KeyW)) {
+  //   translation = add(translation, scale(up, jumpK))
+  // }
+  if (isKeyDown(Key.KeyS)) {
+    // translation = add(translation, down)
+  }
+  if (isKeyDown(Key.KeyA)) {
+    translation = add(translation, scale(left, walkK))
+  }
+  if (isKeyDown(Key.KeyD)) {
+    translation = add(translation, scale(right, walkK))
+  }
+  return translation
+}
+
+const updatePhysics = (dt: number) => {
   let eventQueue = new EventQueue(true)
   // Step the simulation forward.
   world.step(eventQueue)
 
   const trianglesHit = [] as TriangleGameObject[]
   const handleCollision = (colliderHandle: number, forceMagniture: number) => {
+    // TODO turn player into gameobject
+    if (colliderHandle === playerCollider.handle) {
+      isGrounded = true
+    }
     const gameObject = gameObjects.find(
       (it) => it.collider.handle === colliderHandle,
     )
@@ -652,6 +717,30 @@ const updatePhysics = () => {
 
   let playerPosition = playerCollider.translation()
 
+  const normals = linspace(0, Math.PI * 2, 100).map((angle) => {
+    // const normals = [-Math.PI / 2].map((angle) => {
+    const dir = [Math.cos(angle), Math.sin(angle)] as Vec2
+    // distance from player surface
+    const epsilon = playerRadius / 100
+    const surface = add(
+      vec2(playerPosition),
+      scale(dir, playerRadius + epsilon),
+    )
+    const legLength = playerRadius / 10
+    // const legLength = 100
+    const intersection = world.castRayAndGetNormal(
+      new Ray(vecXy(surface), vecXy(dir)),
+      legLength,
+      true,
+    )
+    if (!intersection) {
+      return origo
+    }
+    return vec2(intersection.normal)
+  })
+  const s = centroid(...normals)
+  const surfaceNormal = norm2(s) < 0.001 ? undefined : normalized2(s)
+
   // viewport.position.x = playerPosition.x
   // viewport.position.y = playerPosition.y
   // just for fun, let's rotate mr rabbit a little
@@ -660,47 +749,84 @@ const updatePhysics = () => {
   playerSprite.position.x = playerPosition.x
   playerSprite.position.y = playerPosition.y
   playerSprite.rotation = playerCollider.rotation()
+  const playerVel = playerBody.linvel()
+  playerFeetNormal.visible = Boolean(surfaceNormal)
+  playerFeetNormal.position.set(playerPosition.x, playerPosition.y)
+  playerFeetNormal.rotation = surfaceNormal
+    ? Math.atan2(surfaceNormal[1], surfaceNormal[0])
+    : 0
+  if (surfaceNormal && isKeyDown(Key.KeyW)) {
+    playerBody.applyImpulse(vecXy(scale(surfaceNormal, jumpK * 300)), true)
+  }
 
+  characterController.computeColliderMovement(
+    playerCollider, // The collider we would like to move.
+    vecXy(desiredTranslation(isKeyDown)), // The movement we would like to apply if there wasn’t any obstacle.
+  )
+  const correctedMovement = characterController.computedMovement()
+
+  // const newVel = add(
+  //   vec2(playerBody.linvel()),
+  //   div(vec2(correctedMovement), dt / 1000),
+  // )
+  // const newVel = add([0, g], div(vec2(correctedMovement), dt / 1000))
+  // scale(gravity, dt)
+  // const newVel = add(
+  //   div(vec2(correctedMovement), dt),
+  //   vec2(playerBody.linvel()),
+  // )
+  // const verticalVel = project(vec2(playerBody.linvel()), up)
+  const verticalVel = vec2(playerBody.linvel())
+  const newVel = add(
+    div(vec2(correctedMovement), dt),
+    add(verticalVel, scale(gravity, 5 * dt)),
+  )
+  playerBody.setLinvel(vecXy(newVel), true)
+
+  // console.log(
+  //   playerBody.translation(),
+  //   vecXy(div(vec2(correctedMovement), dt / 1000)),
+  // )
   pixiWorld.position.set(-playerPosition.x, -playerPosition.y)
 }
 
 let timeSinceLastTick = 0
-const physicsDt = 1000 / 60
-const maxDt = 1000 / 30
+const physicsDt = 1 / 60
+const maxDt = 1 / 30
 
 // Listen for animate update
 
 const loop = (then: number) => (now: number) => {
-  const dt = now - then
+  const dt = (now - then) / 1000
 
   timeSinceLastTick = Math.min(timeSinceLastTick + dt, maxDt)
   while (timeSinceLastTick > physicsDt) {
     timeSinceLastTick -= physicsDt
-    updatePhysics()
+    updatePhysics(dt)
   }
 
   requestAnimationFrame(loop(now))
 }
 requestAnimationFrame(loop(0))
 
-window.addEventListener('keydown', (event) => {
-  const impulse = 1
-  switch (event.code) {
-    case 'KeyW': {
-      playerBody.applyImpulse({ x: 0.0, y: impulse }, true)
-      break
-    }
-    case 'KeyS': {
-      playerBody.applyImpulse({ x: 0.0, y: -impulse }, true)
-      break
-    }
-    case 'KeyA': {
-      playerBody.applyImpulse({ x: -impulse, y: 0.0 }, true)
-      break
-    }
-    case 'KeyD': {
-      playerBody.applyImpulse({ x: impulse, y: 0.0 }, true)
-      break
-    }
-  }
-})
+// window.addEventListener('keydown', (event) => {
+//   const impulse = 1
+//   switch (event.code) {
+//     case 'KeyW': {
+//       playerBody.applyImpulse({ x: 0.0, y: impulse }, true)
+//       break
+//     }
+//     case 'KeyS': {
+//       playerBody.applyImpulse({ x: 0.0, y: -impulse }, true)
+//       break
+//     }
+//     case 'KeyA': {
+//       playerBody.applyImpulse({ x: -impulse, y: 0.0 }, true)
+//       break
+//     }
+//     case 'KeyD': {
+//       playerBody.applyImpulse({ x: impulse, y: 0.0 }, true)
+//       break
+//     }
+//   }
+// })

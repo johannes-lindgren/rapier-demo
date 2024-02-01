@@ -20,6 +20,7 @@ export type VecXyz = {
 
 export const vec2 = (v: VecXy): Vec2 => [v.x, v.y]
 export const vec3 = (v: VecXyz): Vec3 => [v.x, v.y, v.z]
+
 export const vecXy = (v: Vec2): VecXy => ({
   x: v[0],
   y: v[1],
@@ -34,11 +35,31 @@ export const add = (v1: Vec2, v2: Vec2): Vec2 => [v1[0] + v2[0], v1[1] + v2[1]]
 export const sub = (v1: Vec2, v2: Vec2): Vec2 => [v1[0] - v2[0], v1[1] - v2[1]]
 
 export const origo: Vec2 = [0, 0]
+export const left: Vec2 = [-1, 0]
+export const right: Vec2 = [1, 0]
+export const up: Vec2 = [0, 1]
+export const down: Vec2 = [0, -1]
+
+export const neg = <T extends Vec>(vec: T): T => {
+  let out = new Array(vec.length)
+  for (let i = 0; i < vec.length; i++) {
+    out[i] = -vec[i]
+  }
+  return out as T
+}
 
 export const scale = <T extends Vec>(vec: T, scalar: number): T => {
   let out = new Array(vec.length)
   for (let i = 0; i < vec.length; i++) {
     out[i] = vec[i] * scalar
+  }
+  return out as T
+}
+
+export const div = <T extends Vec>(vec: T, denominator: number): T => {
+  let out = new Array(vec.length)
+  for (let i = 0; i < vec.length; i++) {
+    out[i] = vec[i] / denominator
   }
   return out as T
 }
@@ -77,11 +98,28 @@ export const norm1 = (v: Vec): number => {
   return acc
 }
 
+export const dot = <V extends Vec>(v1: V, v2: V): number => {
+  let acc = 0
+  for (let i = 0; i < v1.length; i++) {
+    acc += v1[i] * v2[i]
+  }
+  return acc
+}
+
+export const project = (v: Vec2, axis: Vec2): Vec2 => scale(axis, dot(v, axis))
+
+export const norm2 = (v: Vec): number => {
+  let acc = 0
+  for (let x of v) {
+    acc += x * x
+  }
+  return Math.sqrt(acc)
+}
+
 /**
  * The vector normalized according to the L1 norm (Manhattan norm)
  * @param v
  */
 export const normalized1 = (v: Vec): Vec => v.map((it) => it / norm1(v))
-
-export const vec2sFromVec = (vec: Vec): Vec2[] =>
-  chunk(vec, 2) as unknown as Vec2[]
+export const normalized2 = <V extends Vec>(v: V): V =>
+  v.map((it) => it / norm2(v)) as V

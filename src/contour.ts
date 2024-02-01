@@ -1,6 +1,6 @@
 import { greet } from 'wasm-lib'
 import { parseSvgPath } from './parseSvgPath/parseSvgPath.ts'
-import { Vec2, vec2sFromVec } from './vec.ts'
+import { Vec2 } from './vec.ts'
 import { Vector } from './vector.ts'
 
 export type ContourResult = {
