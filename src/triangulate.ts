@@ -19,6 +19,7 @@ export const triangulate = async (
   shape: TriangulationInput,
   area: number,
 ): Promise<Triangles> => {
+  console.log('base url', import.meta.env.BASE_URL)
   await Triangle.init(`${import.meta.env.BASE_URL}/triangle.out.wasm`)
 
   const data = {
