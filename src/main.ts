@@ -71,14 +71,14 @@ const debug = {
 
 // Map params
 // const seed = 11
-// const seed = Math.random()
-const seed = 110
+const seed = Math.random()
+// const seed = 110
 const thresholdFill = 0.55
 const thresholdHole = 0.3
 
 // Physics
 const makeGroupDynamicThreshold = 30
-const breakThreshold = 100
+const breakThreshold = 30
 const gravity: Vec2 = [0, -9.82]
 
 // Player controller
@@ -173,7 +173,7 @@ let feetCollider = world.createCollider(
 
 // create a new Sprite from an image path
 const playerSprite = PIXI.Sprite.from(
-  `${import.meta.env.BASE_URL}/player_512.png`,
+  `${import.meta.env.BASE_URL}player_512.png`,
   {
     mipmap: MIPMAP_MODES.POW2,
   },
@@ -603,9 +603,6 @@ const updatePhysics = (dt: number) => {
   const trianglesHit = [] as TriangleGameObject[]
   const handleCollision = (colliderHandle: number, forceMagniture: number) => {
     // TODO turn player into gameobject
-    if (colliderHandle === playerCollider.handle) {
-      isGrounded = true
-    }
     const gameObject = gameObjects.find(
       (it) => it.collider.handle === colliderHandle,
     )
@@ -768,28 +765,13 @@ const updatePhysics = (dt: number) => {
   )
   const correctedMovement = characterController.computedMovement()
 
-  // const newVel = add(
-  //   vec2(playerBody.linvel()),
-  //   div(vec2(correctedMovement), dt / 1000),
-  // )
-  // const newVel = add([0, g], div(vec2(correctedMovement), dt / 1000))
-  // scale(gravity, dt)
-  // const newVel = add(
-  //   div(vec2(correctedMovement), dt),
-  //   vec2(playerBody.linvel()),
-  // )
-  // const verticalVel = project(vec2(playerBody.linvel()), up)
   const verticalVel = vec2(playerBody.linvel())
   const newVel = add(
     div(vec2(correctedMovement), dt),
-    add(verticalVel, scale(gravity, 5 * dt)),
+    add(verticalVel, scale(gravity, dt)),
   )
   playerBody.setLinvel(vecXy(newVel), true)
 
-  // console.log(
-  //   playerBody.translation(),
-  //   vecXy(div(vec2(correctedMovement), dt / 1000)),
-  // )
   pixiWorld.position.set(-playerPosition.x, -playerPosition.y)
 }
 
