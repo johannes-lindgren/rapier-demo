@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: wasm-pack-action
       uses: jetli/wasm-pack-action@v0.4.0      
     - name: Build
@@ -22,7 +22,7 @@ jobs:
     - name: Setup node
       uses: actions/setup-node@v3
       with:
-        node-version: 18.16.0
+        node-version: 20
         cache: 'yarn'
         registry-url: 'https://registry.npmjs.org'
     - run: yarn install --immutable
