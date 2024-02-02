@@ -31,7 +31,16 @@ export const vecXyz = (v: Vec3): VecXyz => ({
   z: v[2],
 })
 
-export const add = (v1: Vec2, v2: Vec2): Vec2 => [v1[0] + v2[0], v1[1] + v2[1]]
+export const add = <V extends Vec>(...vecs: V[]): V => {
+  const dimensions = vecs[0].length
+  let s = zeros(dimensions) as V
+  for (let v of vecs) {
+    for (let dimension = 0; dimension < dimensions; dimension++) {
+      s[dimension] += v[dimension]
+    }
+  }
+  return s
+}
 export const sub = (v1: Vec2, v2: Vec2): Vec2 => [v1[0] - v2[0], v1[1] - v2[1]]
 
 export const origo: Vec2 = [0, 0]
@@ -66,12 +75,7 @@ export const div = <T extends Vec>(vec: T, denominator: number): T => {
 
 export const centroid = <V extends Vec>(...vecs: V[]): V => {
   const dimensions = vecs[0].length
-  let c = zeros(dimensions) as V
-  for (let v of vecs) {
-    for (let dimension = 0; dimension < dimensions; dimension++) {
-      c[dimension] += v[dimension]
-    }
-  }
+  const c = add(...vecs)
   for (let dimension = 0; dimension < dimensions; dimension++) {
     c[dimension] /= vecs.length
   }
@@ -123,3 +127,16 @@ export const norm2 = (v: Vec): number => {
 export const normalized1 = (v: Vec): Vec => v.map((it) => it / norm1(v))
 export const normalized2 = <V extends Vec>(v: V): V =>
   v.map((it) => it / norm2(v)) as V
+
+/*
+ * Rotation
+ */
+export const angle = (vec: Vec2): number => Math.atan2(vec[1], vec[0])
+export const fromAngle = (angle: number): Vec2 => [
+  Math.cos(angle),
+  Math.sin(angle),
+]
+export const radians = (degrees: number): number => (degrees * Math.PI) / 180
+export const degrees = (radians: number): number => (radians * 180) / Math.PI
+export const antiClockWise90deg = (vec: Vec2): Vec2 => [-vec[1], vec[0]]
+export const clockwise90deg = (vec: Vec2): Vec2 => [vec[1], -vec[0]]

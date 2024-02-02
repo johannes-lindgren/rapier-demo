@@ -50,12 +50,13 @@ void main() {
   float rock = texture(heightMap, vUvsUniform)[0];
   float material = terrain[1];
 
+  float darken = 0.9;
   if(g.y > .0){
     // grass
-    fragColor = vec4(rock * vec3(0.3, 0.9, 0.4), 1.0) + 0.02 * texture(whiteNoise, vUvs);
+    fragColor = vec4(1.1* rock * vec3(0.3, 0.9, 0.4), 1.0) + 0.02 * texture(whiteNoise, vUvs);
   } else {
     // rock
-    fragColor = vec4(rock, rock, rock, 1.0);
+    fragColor = vec4(darken * rock, darken * rock, 0.95 * darken  * rock, 1.0);
   }
 
 //  fragColor = g.y > 0.5 ? vec4(0.0, g.y, 0.0, 1.0) : texture(heightMap, uv);
