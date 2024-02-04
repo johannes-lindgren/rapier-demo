@@ -31,6 +31,7 @@ import {
   centroid,
   clockwise90deg,
   degrees,
+  distSquared,
   div,
   dot,
   down,
@@ -66,6 +67,7 @@ import { keyDownTracker, Key } from './keyDownTracker.ts'
 import { createArrow } from './createArrow.ts'
 import { findC } from './triangle.ts'
 import { createStats } from './createStats.ts'
+import { isNonEmpty, min } from './arrays.ts'
 
 /*
  * Configration
@@ -83,8 +85,8 @@ const debugController = {
 
 // Map params
 // const seed = 11
-const seed = Math.random()
-// const seed = 110
+// const seed = Math.random()
+const seed = 110
 const thresholdFill = 0.55
 const thresholdHole = 0.3
 
@@ -106,7 +108,7 @@ const autoStepMinWidth = playerRadius * 0.1
 
 // Camera
 const rotateCamera = false
-const rotationDamping = 0.98
+const rotationDamping = 0.98 as number
 
 /*
  * Init game
@@ -240,14 +242,30 @@ playerSprite.y = 0
 playerSprite.zIndex = zIndex.player
 pixiWorld.addChild(playerSprite)
 
-const playerFeetNormal = createArrow()
-pixiWorld.addChild(playerFeetNormal)
+const playerDirLine = createArrow(0.1, 0x000000)
+pixiWorld.addChild(playerDirLine)
 
-const sensorCount = 8
+const sensorCount = 50
+const legCount = 8
+
+type Leg = {
+  angle: number
+  foot: undefined | Vec2
+}
+const legs: Leg[] = linspace(0, 2 * Math.PI, legCount + 1)
+  .slice(1)
+  .map((angle) => {
+    // const hip =
+    return {
+      angle,
+      foot: undefined as undefined | Vec2,
+    }
+  })
+
 const sensorLines = zeros(sensorCount).map(() =>
   createArrow(0.05, 0xd5402b, 0.5),
 )
-const legLines = zeros(sensorCount).map(() => [
+const legLines = zeros(legCount).map(() => [
   createArrow(0.03, 0x000000, 1),
   createArrow(0.03, 0x000000, 1),
 ])
@@ -642,7 +660,7 @@ if (!spawn) {
 let playerBody = world.createRigidBody(
   RigidBodyDesc.dynamic()
     .setTranslation(...spawn.pos)
-    .setLinearDamping(1)
+    .setLinearDamping(3)
     .setAngularDamping(40),
 )
 
@@ -651,6 +669,7 @@ let playerCollider = world.createCollider(
   ColliderDesc.ball(playerRadius).setFriction(0.9).setRestitution(0),
   playerBody,
 )
+
 // const jump = throttle(
 //   (direction: Vec2) => {
 //     playerBody.applyImpulse(vecXy(scale(direction, jumpK)), true)
@@ -682,16 +701,16 @@ const desiredTranslation = (
         left,
         right,
       }
-  if (isKeyDown(Key.KeyW)) {
+  if (isKeyDown(Key.KeyW) || isKeyDown(Key.ArrowUp)) {
     translation = add(translation, scale(dir.up, walkK))
   }
-  if (isKeyDown(Key.KeyS)) {
+  if (isKeyDown(Key.KeyS) || isKeyDown(Key.ArrowDown)) {
     translation = add(translation, scale(dir.down, walkK))
   }
-  if (isKeyDown(Key.KeyA)) {
+  if (isKeyDown(Key.KeyA) || isKeyDown(Key.ArrowLeft)) {
     translation = add(translation, scale(dir.left, walkK))
   }
-  if (isKeyDown(Key.KeyD)) {
+  if (isKeyDown(Key.KeyD) || isKeyDown(Key.ArrowRight)) {
     translation = add(translation, scale(dir.right, walkK))
   }
   return translation
@@ -747,7 +766,8 @@ const desiredTranslation = (
 // }
 
 type PlayerSense = {
-  pos: Vec2
+  start: Vec2
+  end: Vec2
   dir: Vec2
   angle: number
   toi: number
@@ -779,7 +799,8 @@ const playerSenses = (body: RigidBody): PlayerSense[] => {
         return undefined
       }
       return {
-        pos: surface,
+        start: surface,
+        end: add(surface, scale(dir, intersection.toi)),
         dir,
         angle,
         toi: intersection.toi,
@@ -910,17 +931,22 @@ const updatePhysics = (dt: number) => {
   })
 
   const playerPosition = playerCollider.translation()
+  // TODO use this instead
+  const playerPos = vec2(playerCollider.translation())
   const playerAngle = playerCollider.rotation()
   const playerDir = fromAngle(playerAngle)
 
   playerSprite.position.x = playerPosition.x
   playerSprite.position.y = playerPosition.y
   playerSprite.rotation = playerAngle
-  playerFeetNormal.rotation = playerAngle
+
+  playerDirLine.position.set(
+    ...add(playerPos, scale(playerDir, playerRadius * 0.9)),
+  )
+  playerDirLine.rotation = playerAngle
+  playerDirLine.scale.set(0.1, 1)
 
   const senses = playerSenses(playerBody)
-  playerFeetNormal.visible = senses.length > 0
-  playerFeetNormal.position.set(playerPosition.x, playerPosition.y)
 
   const velocity = vec2(playerBody.linvel())
   sensorLines.forEach((line) => (line.visible = false))
@@ -934,21 +960,74 @@ const updatePhysics = (dt: number) => {
       : undefined
   if (senses.length > 0) {
     // Draw legs
-    zeros(sensorCount).forEach((_, index) => {
-      const sense = senses[index]
-      if (!sense) {
+
+    const legLength = snapToGroundDist
+    const hipPos = (leg: Leg) =>
+      add(playerPos, scale(fromAngle(playerAngle + leg.angle), playerRadius))
+
+    // // Detach legs
+    legs.forEach((leg) => {
+      if (!leg.foot) {
         return
       }
-      const sensorLine = sensorLines[index]
-      const [thighLine, calfLine] = legLines[index]
+      const distance = norm2(sub(hipPos(leg), leg.foot))
+      if (distance > legLength) {
+        leg.foot = undefined
+      }
+    })
 
+    const detachedLegs = legs.filter((leg) => !leg.foot)
+
+    const attachedLegs = legs.filter((leg) => leg.foot)
+
+    // Attach legs
+    detachedLegs.forEach((leg) => {
+      const distToSensorEnd = (sense: PlayerSense, leg: Leg) =>
+        norm2(sub(hipPos(leg), sense.end))
+
+      // Sensors that are not in the vicinity of other feet
+      const minFeetDistance = 0.25
+      const availableSenses = senses.filter((sense) => {
+        const closestLeg = isNonEmpty(attachedLegs)
+          ? min(attachedLegs, (attachedLeg) =>
+              distSquared(attachedLeg.foot, sense.end),
+            )
+          : undefined
+        return closestLeg === undefined
+          ? true
+          : distSquared(sense.end, closestLeg.foot) > minFeetDistance ** 2
+      })
+
+      const closestSensor = isNonEmpty(availableSenses)
+        ? min(availableSenses, (sense) => distToSensorEnd(sense, leg))
+        : undefined
+
+      if (closestSensor && distToSensorEnd(closestSensor, leg) < legLength) {
+        leg.foot = closestSensor.end
+        attachedLegs.push(leg)
+      }
+    })
+
+    attachedLegs.forEach((leg, legIndex) => {
+      const hip = hipPos(leg)
+      const foot = leg.foot
+      const thighLength = snapToGroundDist / 2
+      const calfLength = snapToGroundDist
+      const knee = findC(hip, foot, calfLength, thighLength)
+
+      // console.log(hip, knee, foot)
+
+      if (!knee) {
+        return
+      }
+
+      // Draw
+      const [thighLine, calfLine] = legLines[legIndex]
       thighLine.visible = true
       calfLine.visible = true
-      const hip = sense.pos
-      const foot = add(sense.pos, scale(sense.dir, sense.toi))
-      const knee = findC(hip, foot, snapToGroundDist / 2, snapToGroundDist / 2)
+
       const hipKneeRel = sub(knee, hip)
-      thighLine.position.set(...sense.pos)
+      thighLine.position.set(...hip)
       thighLine.scale.set(norm2(hipKneeRel), 1)
       thighLine.rotation = angle(hipKneeRel)
 
@@ -956,7 +1035,16 @@ const updatePhysics = (dt: number) => {
       calfLine.position.set(...knee)
       calfLine.scale.set(norm2(kneeFotRel), 1)
       calfLine.rotation = angle(kneeFotRel)
+
+      // const kneeFotRel = sub(foot, hip)
+      // calfLine.position.set(...hip)
+      // calfLine.scale.set(norm2(kneeFotRel), 1)
+      // calfLine.rotation = angle(kneeFotRel)
     })
+    // const sensorLine = sensorLines[index]
+
+    // const hip = sense.pos
+    // const foot = add(sense.pos, scale(sense.dir, sense.toi))
     playerBody.setGravityScale(0, false)
     // Climbing
     characterController.setUp(vecXy(playerDir))
@@ -1001,15 +1089,7 @@ const updatePhysics = (dt: number) => {
         playerBody.applyImpulse(vecXy(scale(down, debugController.flyK)), true)
       }
     }
-
-    // const newVel = add(
-    //   div(vec2(correctedMovement), dt),
-    //   add(velocity, scale(surfaceNormal ? origo : gravity, dt)),
-    //   // origo,
-    // )
-    // playerBody.setLinvel(vecXy(newVel), true)
   }
-
   // Camera
   cameraAngle = rotateCamera
     ? rotationDamping * cameraAngle +

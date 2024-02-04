@@ -120,6 +120,11 @@ export const norm2 = (v: Vec): number => {
   return Math.sqrt(acc)
 }
 
+export const distSquared = (v1: Vec2, v2: Vec2): number => {
+  const diff = sub(v1, v2)
+  return dot(diff, diff)
+}
+
 /**
  * The vector normalized according to the L1 norm (Manhattan norm)
  * @param v
