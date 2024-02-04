@@ -65,6 +65,7 @@ import { groupBy } from 'lodash'
 import { keyDownTracker, Key } from './keyDownTracker.ts'
 import { createArrow } from './createArrow.ts'
 import { findC } from './triangle.ts'
+import { createStats } from './createStats.ts'
 
 /*
  * Configration
@@ -99,7 +100,7 @@ const hoverHeight = playerRadius * 2
 const clawForce = 30
 const maxClimbAngle = 180
 const minSlideAngle = 20
-const walkK = 0.02
+const walkK = 0.002
 const autoStepMaxHeight = playerRadius * 3
 const autoStepMinWidth = playerRadius * 0.1
 
@@ -132,6 +133,10 @@ const app = new PIXI.Application<HTMLCanvasElement>({
   antialias: true,
 })
 document.body.appendChild(app.view)
+
+// Stats
+const stats = createStats()
+document.body.appendChild(stats.dom)
 
 const viewport = new Container()
 
@@ -678,7 +683,7 @@ const desiredTranslation = (
         right,
       }
   if (isKeyDown(Key.KeyW)) {
-    translation = add(translation, scale(dir.up, walkK))
+    translation = add(translation, scale(dir.up, K))
   }
   if (isKeyDown(Key.KeyS)) {
     translation = add(translation, scale(dir.down, walkK))
@@ -1018,6 +1023,7 @@ const maxDt = 1 / 30
 // Listen for animate update
 
 const loop = (then: number) => (now: number) => {
+  stats.begin()
   const dt = (now - then) / 1000
 
   timeSinceLastTick = Math.min(timeSinceLastTick + dt, maxDt)
@@ -1026,6 +1032,7 @@ const loop = (then: number) => (now: number) => {
     updatePhysics(dt)
   }
 
+  stats.end()
   requestAnimationFrame(loop(now))
 }
 requestAnimationFrame(loop(0))
