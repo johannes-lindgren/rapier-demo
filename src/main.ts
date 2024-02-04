@@ -643,7 +643,7 @@ let playerBody = world.createRigidBody(
   RigidBodyDesc.dynamic()
     .setTranslation(...spawn.pos)
     .setLinearDamping(1)
-    .setAngularDamping(1),
+    .setAngularDamping(40),
 )
 
 // Create a ball collider attached to the dynamic rigidBody.
@@ -683,7 +683,7 @@ const desiredTranslation = (
         right,
       }
   if (isKeyDown(Key.KeyW)) {
-    translation = add(translation, scale(dir.up, K))
+    translation = add(translation, scale(dir.up, walkK))
   }
   if (isKeyDown(Key.KeyS)) {
     translation = add(translation, scale(dir.down, walkK))
@@ -909,15 +909,15 @@ const updatePhysics = (dt: number) => {
     }
   })
 
-  let playerPosition = playerCollider.translation()
+  const playerPosition = playerCollider.translation()
+  const playerAngle = playerCollider.rotation()
+  const playerDir = fromAngle(playerAngle)
 
-  // viewport.position.x = playerPosition.x
-  // viewport.position.y = playerPosition.y
-  // just for fun, let's rotate mr rabbit a little
-  // delta is 1 if running at 100% performance
-  // creates frame-independent transformation
   playerSprite.position.x = playerPosition.x
   playerSprite.position.y = playerPosition.y
+  playerSprite.rotation = playerAngle
+  playerFeetNormal.rotation = playerAngle
+
   const senses = playerSenses(playerBody)
   playerFeetNormal.visible = senses.length > 0
   playerFeetNormal.position.set(playerPosition.x, playerPosition.y)
@@ -957,14 +957,12 @@ const updatePhysics = (dt: number) => {
       calfLine.scale.set(norm2(kneeFotRel), 1)
       calfLine.rotation = angle(kneeFotRel)
     })
-    playerFeetNormal.rotation = senses ? angle(surfaceNormal) : 0
-    playerSprite.rotation = angle(antiClockWise90deg(surfaceNormal))
     playerBody.setGravityScale(0, false)
     // Climbing
-    characterController.setUp(vecXy(surfaceNormal))
+    characterController.setUp(vecXy(playerDir))
     characterController.computeColliderMovement(
       playerCollider, // The collider we would like to move.
-      vecXy(desiredTranslation(isKeyDown, surfaceNormal)), // The movement we would like to apply if there wasn’t any obstacle.
+      vecXy(desiredTranslation(isKeyDown, playerDir)), // The movement we would like to apply if there wasn’t any obstacle.
     )
     const correctedMovement = vec2(characterController.computedMovement())
 
@@ -979,6 +977,12 @@ const updatePhysics = (dt: number) => {
     const dv = add(scale(force, dt), div(correctedMovement, dt))
     const newLinVel = add(dv, velocity)
     playerBody.setLinvel(vecXy(newLinVel), true)
+
+    if (surfaceNormal) {
+      const springTorque =
+        dot(surfaceNormal, fromAngle(playerAngle + Math.PI / 2)) * 0.01
+      playerBody.applyTorqueImpulse(springTorque, true)
+    }
     // }
   } else {
     playerBody.setGravityScale(1, false)
