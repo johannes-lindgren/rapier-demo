@@ -57,11 +57,11 @@ import { calculateZIndices } from './calculateZIndices.ts'
 import { createTriangleShader } from './createTriangleShader.ts'
 import { vector } from './vector.ts'
 import { createGrassTexture } from './createGrassTexture'
-import { OutlineFilter } from 'pixi-filters'
+import { DropShadowFilter, OutlineFilter } from 'pixi-filters'
 import { pseudoRandomColor, randomColor } from './randomColor.ts'
 import { areTrianglesJoined, groupTriangles } from './groupTriangles.ts'
 import { v4 as randomUuid } from 'uuid'
-import { groupBy, intersection, throttle } from 'lodash'
+import { groupBy } from 'lodash'
 import { keyDownTracker, Key } from './keyDownTracker.ts'
 import { createArrow } from './createArrow.ts'
 import { findC } from './triangle.ts'
@@ -129,6 +129,7 @@ characterController.enableAutostep(autoStepMaxHeight, autoStepMinWidth, true)
 
 const app = new PIXI.Application<HTMLCanvasElement>({
   background: '#30aacc',
+  antialias: true,
 })
 document.body.appendChild(app.view)
 
@@ -148,7 +149,10 @@ viewport.addChild(backgroundContainer)
 app.stage.addChild(viewport)
 const pixiWorld = new Container()
 pixiWorld.sortableChildren = true
-pixiWorld.filters = [new OutlineFilter(1, 0x333333, 1.0)]
+pixiWorld.filters = [
+  new OutlineFilter(0.5, 0x333333, 1.0),
+  new DropShadowFilter(),
+]
 viewport.addChild(pixiWorld)
 
 const handleResize = () => {
@@ -193,7 +197,7 @@ const mapDimensions = {
 // create a new Sprite from an image path
 
 const createPlayerSprite = () => {
-  const eyeRadius = playerRadius * 0.5
+  const eyeRadius = playerRadius * 0.4
   const pupilRadius = eyeRadius * 0.4
 
   const head = new PIXI.Graphics()
