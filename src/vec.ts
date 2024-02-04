@@ -125,9 +125,13 @@ export const norm2 = (v: Vec): number => {
  * @param v
  */
 export const normalized1 = (v: Vec): Vec => v.map((it) => it / norm1(v))
-export const normalized2 = <V extends Vec>(v: V): V =>
-  v.map((it) => it / norm2(v)) as V
-
+export const normalized2 = <V extends Vec>(v: V): V | undefined => {
+  const len = norm2(v)
+  if (len === 0) {
+    return undefined
+  }
+  return v.map((it) => it / len) as V
+}
 /*
  * Rotation
  */

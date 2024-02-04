@@ -96,10 +96,10 @@ const gravity: Vec2 = [0, -9.82]
 const playerRadius = 0.2
 const snapToGroundDist = playerRadius * 5
 const hoverHeight = playerRadius * 2
-const clawForce = 10
+const clawForce = 30
 const maxClimbAngle = 180
 const minSlideAngle = 20
-const walkK = 0.002
+const walkK = 0.02
 const autoStepMaxHeight = playerRadius * 3
 const autoStepMinWidth = playerRadius * 0.1
 
@@ -191,26 +191,50 @@ const mapDimensions = {
 }
 
 // create a new Sprite from an image path
-const playerSprite = PIXI.Sprite.from(
-  `${import.meta.env.BASE_URL}player_512.png`,
-  {
-    mipmap: MIPMAP_MODES.POW2,
-  },
-)
+
+const createPlayerSprite = () => {
+  const eyeRadius = playerRadius * 0.5
+  const pupilRadius = eyeRadius * 0.4
+
+  const head = new PIXI.Graphics()
+  head.beginFill(0x0f0f0f)
+  head.drawCircle(0, 0, playerRadius)
+  head.endFill()
+
+  // Left eye
+  head.beginFill(0xffffff)
+  head.drawCircle(-eyeRadius, 0, eyeRadius)
+  head.endFill()
+  // Left pupil
+  head.beginFill(0x000000)
+  head.drawCircle(-eyeRadius, 0, pupilRadius)
+  head.endFill()
+
+  // Left eye
+  head.beginFill(0xffffff)
+  head.drawCircle(eyeRadius, 0, eyeRadius)
+  head.endFill()
+  // Left pupil
+  head.beginFill(0x000000)
+  head.drawCircle(eyeRadius, 0, pupilRadius)
+  head.endFill()
+
+  return head
+}
+const playerSprite = createPlayerSprite()
+
 // center the sprite's anchor point
-playerSprite.anchor.set(0.5)
+// playerSprite.anchor.set(0.5)
 // move the sprite to the center of the screen
 playerSprite.x = 0
 playerSprite.y = 0
 playerSprite.zIndex = zIndex.player
-playerSprite.width = playerRadius * 2
-playerSprite.height = playerRadius * 2
 pixiWorld.addChild(playerSprite)
 
 const playerFeetNormal = createArrow()
 pixiWorld.addChild(playerFeetNormal)
 
-const sensorCount = 50
+const sensorCount = 8
 const sensorLines = zeros(sensorCount).map(() =>
   createArrow(0.05, 0xd5402b, 0.5),
 )
@@ -763,7 +787,6 @@ const updatePhysics = (dt: number) => {
 
   const trianglesHit = [] as TriangleGameObject[]
   const handleCollision = (colliderHandle: number, forceMagniture: number) => {
-    // TODO turn player into gameobject
     const gameObject = gameObjects.find(
       (it) => it.collider.handle === colliderHandle,
     )
@@ -779,6 +802,7 @@ const updatePhysics = (dt: number) => {
     handleCollision(event.collider1(), event.totalForceMagnitude())
     handleCollision(event.collider2(), event.totalForceMagnitude())
   })
+
   Object.entries(groupBy(trianglesHit, 'groupId')).map(
     ([oldGroupId, freedTriangles]) => {
       const nonFreedTriangles = groups[oldGroupId].filter(
@@ -897,9 +921,10 @@ const updatePhysics = (dt: number) => {
   })
   const surfaceNormal =
     senses.length > 0
-      ? neg(normalized2(centroid(...senses.map((it) => scale(it.dir, it.toi)))))
+      ? normalized2(neg(centroid(...senses.map((it) => scale(it.dir, it.toi)))))
       : undefined
   if (senses.length > 0) {
+    // Draw legs
     zeros(sensorCount).forEach((_, index) => {
       const sense = senses[index]
       if (!sense) {
@@ -912,13 +937,7 @@ const updatePhysics = (dt: number) => {
       calfLine.visible = true
       const hip = sense.pos
       const foot = add(sense.pos, scale(sense.dir, sense.toi))
-      const knee = findC(
-        hip,
-        foot,
-        snapToGroundDist / 2,
-        snapToGroundDist / 2,
-        sense.toi,
-      )
+      const knee = findC(hip, foot, snapToGroundDist / 2, snapToGroundDist / 2)
       const hipKneeRel = sub(knee, hip)
       thighLine.position.set(...sense.pos)
       thighLine.scale.set(norm2(hipKneeRel), 1)
@@ -928,18 +947,10 @@ const updatePhysics = (dt: number) => {
       calfLine.position.set(...knee)
       calfLine.scale.set(norm2(kneeFotRel), 1)
       calfLine.rotation = angle(kneeFotRel)
-
-      sensorLine.visible = true
-      sensorLine.position.set(...sense.pos)
-      sensorLine.rotation = sense.angle
-      sensorLine.scale.set(sense.toi, 1)
     })
     playerFeetNormal.rotation = senses ? angle(surfaceNormal) : 0
     playerSprite.rotation = angle(antiClockWise90deg(surfaceNormal))
     playerBody.setGravityScale(0, false)
-    // if (isKeyDown(Key.KeyW)) {
-    //   jump(surfaceNormal)
-    // } else {
     // Climbing
     characterController.setUp(vecXy(surfaceNormal))
     characterController.computeColliderMovement(
@@ -956,10 +967,6 @@ const updatePhysics = (dt: number) => {
         ),
       ),
     )
-    // const force = scale(
-    //   surfaceNormal,
-    //   -(clawForce * hoverHeight) / snapToGroundDist,
-    // )
     const dv = add(scale(force, dt), div(correctedMovement, dt))
     const newLinVel = add(dv, velocity)
     playerBody.setLinvel(vecXy(newLinVel), true)
