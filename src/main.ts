@@ -6,11 +6,9 @@ import {
   EventQueue,
   JointData,
   Ray,
-  RayColliderIntersection,
   RigidBody,
   RigidBodyDesc,
   RigidBodyType,
-  ShapeContact,
   Vector2,
 } from '@dimforge/rapier2d'
 import * as PIXI from 'pixi.js'
@@ -66,6 +64,7 @@ import { v4 as randomUuid } from 'uuid'
 import { groupBy, intersection, throttle } from 'lodash'
 import { keyDownTracker, Key } from './keyDownTracker.ts'
 import { createArrow } from './createArrow.ts'
+import { findC } from './triangle.ts'
 
 /*
  * Configration
@@ -94,18 +93,19 @@ const breakThreshold = 100
 const gravity: Vec2 = [0, -9.82]
 
 // Player controller
-const playerRadius = 0.3
+const playerRadius = 0.2
 const snapToGroundDist = playerRadius * 5
+const hoverHeight = playerRadius * 2
+const clawForce = 10
 const maxClimbAngle = 180
 const minSlideAngle = 20
-const walkK = 0.003
-const clawForce = 100
-const jumpK = 2
+const walkK = 0.002
 const autoStepMaxHeight = playerRadius * 3
 const autoStepMinWidth = playerRadius * 0.1
 
 // Camera
-const rotationDamping = 1
+const rotateCamera = false
+const rotationDamping = 0.98
 
 /*
  * Init game
@@ -127,7 +127,7 @@ characterController.setMinSlopeSlideAngle((minSlideAngle * Math.PI) / 180)
 characterController.enableSnapToGround(snapToGroundDist)
 characterController.enableAutostep(autoStepMaxHeight, autoStepMinWidth, true)
 
-const app = new PIXI.Application({
+const app = new PIXI.Application<HTMLCanvasElement>({
   background: '#30aacc',
 })
 document.body.appendChild(app.view)
@@ -209,6 +209,17 @@ pixiWorld.addChild(playerSprite)
 
 const playerFeetNormal = createArrow()
 pixiWorld.addChild(playerFeetNormal)
+
+const sensorCount = 50
+const sensorLines = zeros(sensorCount).map(() =>
+  createArrow(0.05, 0xd5402b, 0.5),
+)
+const legLines = zeros(sensorCount).map(() => [
+  createArrow(0.03, 0x000000, 1),
+  createArrow(0.03, 0x000000, 1),
+])
+pixiWorld.addChild(...sensorLines)
+pixiWorld.addChild(...legLines.flat())
 
 const whiteNoiseTexture = createWhiteNoiseTexture(
   app.renderer,
@@ -583,7 +594,7 @@ while (!spawn && spawnAttempts < 100) {
   )
   if (intersection) {
     spawn = {
-      pos: add(rayFrom, scale(dir, intersection.toi - playerRadius)),
+      pos: add(rayFrom, scale(dir, intersection.toi - hoverHeight)),
       angle: angle(vec2(intersection.normal)),
     }
   }
@@ -607,13 +618,13 @@ let playerCollider = world.createCollider(
   ColliderDesc.ball(playerRadius).setFriction(0.9).setRestitution(0),
   playerBody,
 )
-const jump = throttle(
-  (direction: Vec2) => {
-    playerBody.applyImpulse(vecXy(scale(direction, jumpK)), true)
-  },
-  1000,
-  { trailing: false },
-)
+// const jump = throttle(
+//   (direction: Vec2) => {
+//     playerBody.applyImpulse(vecXy(scale(direction, jumpK)), true)
+//   },
+//   1000,
+//   { trailing: false },
+// )
 
 /*
  * End of world spawn
@@ -623,33 +634,101 @@ const isKeyDown = keyDownTracker()
 const desiredTranslation = (
   isKeyDown: (key: Key) => boolean,
   surfaceNormal: Vec2,
-  k: number,
 ): Vec2 => {
   let translation = origo
-  const left = antiClockWise90deg(surfaceNormal)
-  const right = clockwise90deg(surfaceNormal)
-  // console.log(
-  //   degrees(angle(left)),
-  //   degrees(angle(right)),
-  //   degrees(angle(surfaceNormal)),
-  // )
+  const dir = rotateCamera
+    ? {
+        up: surfaceNormal,
+        down: neg(surfaceNormal),
+        left: antiClockWise90deg(surfaceNormal),
+        right: clockwise90deg(surfaceNormal),
+      }
+    : {
+        up,
+        down,
+        left,
+        right,
+      }
+  if (isKeyDown(Key.KeyW)) {
+    translation = add(translation, scale(dir.up, walkK))
+  }
+  if (isKeyDown(Key.KeyS)) {
+    translation = add(translation, scale(dir.down, walkK))
+  }
   if (isKeyDown(Key.KeyA)) {
-    translation = add(translation, scale(left, k))
+    translation = add(translation, scale(dir.left, walkK))
   }
   if (isKeyDown(Key.KeyD)) {
-    translation = add(translation, scale(right, k))
+    translation = add(translation, scale(dir.right, walkK))
   }
   return translation
 }
 
-const playerSurfaceNormal = (
-  body: RigidBody,
-): { normal: Vec2; toi: number } | undefined => {
+// const playerSurfaceNormal = (
+//   body: RigidBody,
+// ): { normal: Vec2; toi: number } | undefined => {
+//   const legLength = snapToGroundDist
+//   const playerPosition = body.translation()
+//   // distance from player surface
+//   const epsilon = characterControllerOffset / 2
+//
+//   const detectorCount = 50
+//   const intersections = linspace(0, Math.PI * 2, detectorCount)
+//     .map((angle) => {
+//       // const normals = [-Math.PI / 2].map((angle) => {
+//       const dir = [Math.cos(angle), Math.sin(angle)] as Vec2
+//       const surface = add(
+//         vec2(playerPosition),
+//         scale(dir, playerRadius + epsilon),
+//       )
+//       return (
+//         world.castRayAndGetNormal(
+//           new Ray(vecXy(surface), vecXy(dir)),
+//           legLength,
+//           true,
+//         ) ?? undefined
+//       )
+//     })
+//     .filter((it) => it !== undefined) as RayColliderIntersection[]
+//   const normals = intersections.map((it) => vec2(it.normal))
+//   if (normals.length === 0) {
+//     return undefined
+//   }
+//   const surfaceNormal = normalized2(centroid(...normals))
+//   const antiSurfaceNormal = neg(surfaceNormal)
+//   const surface = add(
+//     vec2(playerPosition),
+//     scale(antiSurfaceNormal, playerRadius + epsilon),
+//   )
+//   const surfaceIntersection =
+//     world.castRayAndGetNormal(
+//       new Ray(vecXy(surface), vecXy(antiSurfaceNormal)),
+//       legLength,
+//       true,
+//     ) ?? undefined
+//   if (!surfaceIntersection) {
+//     //   Should not happen
+//     return undefined
+//   }
+//   return { normal: surfaceNormal, toi: surfaceIntersection.toi }
+// }
+
+type PlayerSense = {
+  pos: Vec2
+  dir: Vec2
+  angle: number
+  toi: number
+  surfaceNormal: Vec2
+}
+const playerSenses = (body: RigidBody): PlayerSense[] => {
   const legLength = snapToGroundDist
   const playerPosition = body.translation()
   // distance from player surface
   const epsilon = characterControllerOffset / 2
-  const interections = linspace(0, Math.PI * 2, 100)
+
+  const isRayCast = (value: PlayerSense | undefined): value is PlayerSense =>
+    value !== undefined
+  return linspace(0, Math.PI * 2, sensorCount)
     .map((angle) => {
       // const normals = [-Math.PI / 2].map((angle) => {
       const dir = [Math.cos(angle), Math.sin(angle)] as Vec2
@@ -657,36 +736,24 @@ const playerSurfaceNormal = (
         vec2(playerPosition),
         scale(dir, playerRadius + epsilon),
       )
-      return (
+      const intersection =
         world.castRayAndGetNormal(
           new Ray(vecXy(surface), vecXy(dir)),
           legLength,
           true,
         ) ?? undefined
-      )
+      if (!intersection) {
+        return undefined
+      }
+      return {
+        pos: surface,
+        dir,
+        angle,
+        toi: intersection.toi,
+        surfaceNormal: vec2(intersection.normal),
+      } satisfies PlayerSense
     })
-    .filter((it) => it !== undefined) as RayColliderIntersection[]
-  const normals = interections.map((it) => vec2(it.normal))
-  if (normals.length === 0) {
-    return undefined
-  }
-  const surfaceNormal = normalized2(centroid(...normals))
-  const antiSurfaceNormal = neg(surfaceNormal)
-  const surface = add(
-    vec2(playerPosition),
-    scale(antiSurfaceNormal, playerRadius + epsilon),
-  )
-  const surfaceIntersection =
-    world.castRayAndGetNormal(
-      new Ray(vecXy(surface), vecXy(antiSurfaceNormal)),
-      legLength,
-      true,
-    ) ?? undefined
-  if (!surfaceIntersection) {
-    //   Should not happen
-    return undefined
-  }
-  return { normal: surfaceNormal, toi: surfaceIntersection.toi }
+    .filter(isRayCast)
 }
 
 const updatePhysics = (dt: number) => {
@@ -818,34 +885,85 @@ const updatePhysics = (dt: number) => {
   // creates frame-independent transformation
   playerSprite.position.x = playerPosition.x
   playerSprite.position.y = playerPosition.y
-  const surfaceIntersection = playerSurfaceNormal(playerBody)
-  playerFeetNormal.visible = Boolean(surfaceIntersection)
+  const senses = playerSenses(playerBody)
+  playerFeetNormal.visible = senses.length > 0
   playerFeetNormal.position.set(playerPosition.x, playerPosition.y)
-  playerFeetNormal.rotation = surfaceIntersection
-    ? angle(surfaceIntersection.normal)
-    : 0
 
   const velocity = vec2(playerBody.linvel())
-  if (surfaceIntersection) {
-    const { normal, toi } = surfaceIntersection
+  sensorLines.forEach((line) => (line.visible = false))
+  legLines.forEach(([thigh, calf]) => {
+    thigh.visible = false
+    calf.visible = false
+  })
+  const surfaceNormal =
+    senses.length > 0
+      ? neg(normalized2(centroid(...senses.map((it) => scale(it.dir, it.toi)))))
+      : undefined
+  if (senses.length > 0) {
+    zeros(sensorCount).forEach((_, index) => {
+      const sense = senses[index]
+      if (!sense) {
+        return
+      }
+      const sensorLine = sensorLines[index]
+      const [thighLine, calfLine] = legLines[index]
 
-    playerSprite.rotation = angle(antiClockWise90deg(normal))
-    playerBody.setGravityScale(0, false)
-    if (isKeyDown(Key.KeyW)) {
-      jump(normal)
-    } else {
-      // Climbing
-      characterController.setUp(vecXy(normal))
-      characterController.computeColliderMovement(
-        playerCollider, // The collider we would like to move.
-        vecXy(desiredTranslation(isKeyDown, normal, walkK)), // The movement we would like to apply if there wasn’t any obstacle.
+      thighLine.visible = true
+      calfLine.visible = true
+      const hip = sense.pos
+      const foot = add(sense.pos, scale(sense.dir, sense.toi))
+      const knee = findC(
+        hip,
+        foot,
+        snapToGroundDist / 2,
+        snapToGroundDist / 2,
+        sense.toi,
       )
-      const correctedMovement = vec2(characterController.computedMovement())
-      const force = scale(normal, -(clawForce * toi) / snapToGroundDist)
-      const dv = add(scale(force, dt), div(correctedMovement, dt))
-      const newLinVel = add(dv, velocity)
-      playerBody.setLinvel(vecXy(newLinVel), true)
-    }
+      const hipKneeRel = sub(knee, hip)
+      thighLine.position.set(...sense.pos)
+      thighLine.scale.set(norm2(hipKneeRel), 1)
+      thighLine.rotation = angle(hipKneeRel)
+
+      const kneeFotRel = sub(foot, knee)
+      calfLine.position.set(...knee)
+      calfLine.scale.set(norm2(kneeFotRel), 1)
+      calfLine.rotation = angle(kneeFotRel)
+
+      sensorLine.visible = true
+      sensorLine.position.set(...sense.pos)
+      sensorLine.rotation = sense.angle
+      sensorLine.scale.set(sense.toi, 1)
+    })
+    playerFeetNormal.rotation = senses ? angle(surfaceNormal) : 0
+    playerSprite.rotation = angle(antiClockWise90deg(surfaceNormal))
+    playerBody.setGravityScale(0, false)
+    // if (isKeyDown(Key.KeyW)) {
+    //   jump(surfaceNormal)
+    // } else {
+    // Climbing
+    characterController.setUp(vecXy(surfaceNormal))
+    characterController.computeColliderMovement(
+      playerCollider, // The collider we would like to move.
+      vecXy(desiredTranslation(isKeyDown, surfaceNormal)), // The movement we would like to apply if there wasn’t any obstacle.
+    )
+    const correctedMovement = vec2(characterController.computedMovement())
+
+    const force = centroid(
+      ...senses.map((sense) =>
+        scale(
+          sense.dir,
+          clawForce * ((sense.toi - hoverHeight) / snapToGroundDist),
+        ),
+      ),
+    )
+    // const force = scale(
+    //   surfaceNormal,
+    //   -(clawForce * hoverHeight) / snapToGroundDist,
+    // )
+    const dv = add(scale(force, dt), div(correctedMovement, dt))
+    const newLinVel = add(dv, velocity)
+    playerBody.setLinvel(vecXy(newLinVel), true)
+    // }
   } else {
     playerBody.setGravityScale(1, false)
     if (debugController.enabled) {
@@ -873,10 +991,10 @@ const updatePhysics = (dt: number) => {
   }
 
   // Camera
-  cameraAngle =
-    rotationDamping * cameraAngle +
-    (1 - rotationDamping) *
-      angle(clockwise90deg(surfaceIntersection?.normal ?? up))
+  cameraAngle = rotateCamera
+    ? rotationDamping * cameraAngle +
+      (1 - rotationDamping) * angle(clockwise90deg(surfaceNormal ?? up))
+    : 0
   viewport.rotation = cameraAngle
   pixiWorld.position.set(-playerPosition.x, -playerPosition.y)
 }
@@ -900,25 +1018,3 @@ const loop = (then: number) => (now: number) => {
   requestAnimationFrame(loop(now))
 }
 requestAnimationFrame(loop(0))
-
-// window.addEventListener('keydown', (event) => {
-//   const impulse = 1
-//   switch (event.code) {
-//     case 'KeyW': {
-//       playerBody.applyImpulse({ x: 0.0, y: impulse }, true)
-//       break
-//     }
-//     case 'KeyS': {
-//       playerBody.applyImpulse({ x: 0.0, y: -impulse }, true)
-//       break
-//     }
-//     case 'KeyA': {
-//       playerBody.applyImpulse({ x: -impulse, y: 0.0 }, true)
-//       break
-//     }
-//     case 'KeyD': {
-//       playerBody.applyImpulse({ x: impulse, y: 0.0 }, true)
-//       break
-//     }
-//   }
-// })
