@@ -660,7 +660,7 @@ if (!spawn) {
 let playerBody = world.createRigidBody(
   RigidBodyDesc.dynamic()
     .setTranslation(...spawn.pos)
-    .setLinearDamping(3)
+    .setLinearDamping(1)
     .setAngularDamping(40),
 )
 
@@ -958,9 +958,12 @@ const updatePhysics = (dt: number) => {
     senses.length > 0
       ? normalized2(neg(centroid(...senses.map((it) => scale(it.dir, it.toi)))))
       : undefined
-  if (senses.length > 0) {
-    // Draw legs
 
+  if (isNonEmpty(senses)) {
+    playerBody.setGravityScale(0, false)
+    playerBody.setLinearDamping(3)
+
+    // Draw legs
     const legLength = snapToGroundDist
     const hipPos = (leg: Leg) =>
       add(playerPos, scale(fromAngle(playerAngle + leg.angle), playerRadius))
@@ -1045,7 +1048,6 @@ const updatePhysics = (dt: number) => {
 
     // const hip = sense.pos
     // const foot = add(sense.pos, scale(sense.dir, sense.toi))
-    playerBody.setGravityScale(0, false)
     // Climbing
     characterController.setUp(vecXy(playerDir))
     characterController.computeColliderMovement(
@@ -1074,6 +1076,7 @@ const updatePhysics = (dt: number) => {
     // }
   } else {
     playerBody.setGravityScale(1, false)
+    playerBody.setLinearDamping(1)
     if (debugController.enabled) {
       // Debug controller
       if (isKeyDown(Key.KeyD)) {
