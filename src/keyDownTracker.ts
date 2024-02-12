@@ -1,11 +1,26 @@
-// TODO remove side effects
+// TODO unsubscribe side effects
+
+const doubleClickDelta = 250
 export const keyDownTracker = () => {
-  const keysDown = new Set()
+  const keysDown = new Set<string>()
+  let doubleClickQueue = new Set<string>()
+  const clicks = new Map<
+    string,
+    {
+      lastClicked: number
+    }
+  >()
 
   document.addEventListener('keydown', (event) => {
     if (!event.repeat) {
       keysDown.add(event.code)
     }
+    const lastClick = clicks.get(event.code)?.lastClicked
+    const now = performance.now()
+    if (lastClick && now - lastClick < doubleClickDelta) {
+      doubleClickQueue.add(event.code)
+    }
+    clicks.set(event.code, { lastClicked: now })
   })
 
   document.addEventListener('keyup', (event) => {
@@ -18,7 +33,14 @@ export const keyDownTracker = () => {
     }
   })
 
-  return (keyCode: Key) => keysDown.has(keyCode)
+  return {
+    isKeyDown: (keyCode: Key) => keysDown.has(keyCode),
+    drainEventQueue: () => {
+      const events = doubleClickQueue
+      doubleClickQueue = new Set<string>()
+      return events
+    },
+  }
 }
 
 /**

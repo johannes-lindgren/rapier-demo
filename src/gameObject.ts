@@ -21,13 +21,23 @@ export type TriangleGameObject = {
   tag: 'triangle'
   indices: Vec3
   vertices: Tuple3<Vec2>
+  groupId: string
   debugDisplayObject: DisplayObject
   sprite: DisplayObject
   colliderDesc: ColliderDesc
   rigidBodyDesc: RigidBodyDesc
   rigidBody: RigidBody
   collider: Collider
-  groupId: string
 }
 
-export type GameObject = BoxGameObject | TriangleGameObject
+export type GrenadeGameObject = {
+  tag: 'grenade'
+  sprite: DisplayObject
+  debugDisplayObject: DisplayObject
+  colliderDesc: ColliderDesc
+  rigidBodyDesc: RigidBodyDesc
+  rigidBody: RigidBody
+  collider: Collider
+}
+
+export type GameObject = BoxGameObject | TriangleGameObject | GrenadeGameObject

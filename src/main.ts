@@ -12,8 +12,12 @@ import {
   Vector2,
 } from '@dimforge/rapier2d'
 import * as PIXI from 'pixi.js'
-import { Container, Graphics, Mesh, MIPMAP_MODES, Sprite, Text } from 'pixi.js'
-import { GameObject, TriangleGameObject } from './gameObject.ts'
+import { Container, Graphics, Mesh, MIPMAP_MODES, Sprite } from 'pixi.js'
+import {
+  GameObject,
+  GrenadeGameObject,
+  TriangleGameObject,
+} from './gameObject.ts'
 import { filterLoop, linspace, zeros } from './linear-algebra.ts'
 import { createWhiteNoiseTexture } from './createWhiteNoiseTexture.ts'
 import { createPerlinNoiseTexture } from './createPerlinNoise.ts'
@@ -62,7 +66,7 @@ import { DropShadowFilter, OutlineFilter } from 'pixi-filters'
 import { pseudoRandomColor, randomColor } from './randomColor.ts'
 import { areTrianglesJoined, groupTriangles } from './groupTriangles.ts'
 import { v4 as randomUuid } from 'uuid'
-import { groupBy } from 'lodash'
+import { groupBy, throttle } from 'lodash'
 import { keyDownTracker, Key } from './keyDownTracker.ts'
 import { createArrow } from './createArrow.ts'
 import { findC } from './triangle.ts'
@@ -102,7 +106,7 @@ const hoverHeight = playerRadius * 2
 const clawForce = 30
 const maxClimbAngle = 180
 const minSlideAngle = 20
-const walkK = 0.002
+const walkK = 0.24
 const autoStepMaxHeight = playerRadius * 3
 const autoStepMinWidth = playerRadius * 0.1
 
@@ -670,6 +674,46 @@ let playerCollider = world.createCollider(
   playerBody,
 )
 
+const createGrenade = (options: {
+  pos: Vec2
+  dir: Vec2
+}): GrenadeGameObject => {
+  const radius = 0.1
+  const speed = 10
+  // Create a dynamic rigid-body.
+  const rigidBodyDesc = RigidBodyDesc.dynamic()
+    .setTranslation(...add(options.pos, scale(options.dir, radius)))
+    .setLinvel(...scale(options.dir, speed))
+    .setGravityScale(0)
+
+  // Create a ball collider attached to the dynamic rigidBody.
+  const colliderDesc = ColliderDesc.ball(radius)
+
+  const sprite = new PIXI.Graphics()
+  sprite.beginFill(0xff0000)
+  sprite.drawCircle(0, 0, radius)
+  sprite.endFill()
+
+  return {
+    tag: 'grenade',
+    sprite,
+    colliderDesc,
+    rigidBodyDesc,
+  }
+}
+const shoot = throttle(
+  () => {
+    const dir = fromAngle(playerBody.rotation())
+    addGameObjects([
+      createGrenade({
+        pos: add(vec2(playerBody.translation()), scale(dir, playerRadius)),
+        dir,
+      }),
+    ])
+  },
+  1000,
+  { trailing: false },
+)
 // const jump = throttle(
 //   (direction: Vec2) => {
 //     playerBody.applyImpulse(vecXy(scale(direction, jumpK)), true)
@@ -681,7 +725,7 @@ let playerCollider = world.createCollider(
 /*
  * End of world spawn
  */
-const isKeyDown = keyDownTracker()
+const { isKeyDown, drainEventQueue } = keyDownTracker()
 
 const desiredTranslation = (
   isKeyDown: (key: Key) => boolean,
@@ -1064,7 +1108,7 @@ const updatePhysics = (dt: number) => {
         ),
       ),
     )
-    const dv = add(scale(force, dt), div(correctedMovement, dt))
+    const dv = add(scale(force, dt), correctedMovement)
     const newLinVel = add(dv, velocity)
     playerBody.setLinvel(vecXy(newLinVel), true)
 
@@ -1093,6 +1137,11 @@ const updatePhysics = (dt: number) => {
       }
     }
   }
+  // Shoot
+  const clickEvents = drainEventQueue()
+  if (clickEvents.has(Key.KeyS)) {
+    shoot()
+  }
   // Camera
   cameraAngle = rotateCamera
     ? rotationDamping * cameraAngle +
@@ -1105,7 +1154,7 @@ const updatePhysics = (dt: number) => {
 let cameraAngle = rotationDamping === 1 ? 0 : spawn.angle - Math.PI / 2
 let timeSinceLastTick = 0
 const physicsDt = 1 / 60
-const maxDt = 1 / 30
+const maxDt = physicsDt * 4
 
 // Listen for animate update
 
@@ -1116,10 +1165,10 @@ const loop = (then: number) => (now: number) => {
   timeSinceLastTick = Math.min(timeSinceLastTick + dt, maxDt)
   while (timeSinceLastTick > physicsDt) {
     timeSinceLastTick -= physicsDt
-    updatePhysics(dt)
+    updatePhysics(physicsDt)
   }
 
-  stats.end()
   requestAnimationFrame(loop(now))
+  stats.end()
 }
 requestAnimationFrame(loop(0))

@@ -10,7 +10,7 @@ export type ContourResult = {
 
 export const contour = (
   dimensions: Vector,
-  pixels: Uint8Array,
+  pixels: Uint8Array | Uint8ClampedArray,
   thresholdFill: number,
   thresholdHole: number,
 ): ContourResult => {
