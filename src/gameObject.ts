@@ -9,10 +9,8 @@ import { Tuple3, Vec2, Vec3 } from './vec.ts'
 
 export type BoxGameObject = {
   tag: 'box'
-  debugDisplayObject: DisplayObject
   sprite: DisplayObject
-  colliderDesc: ColliderDesc
-  rigidBodyDesc: RigidBodyDesc
+  debugDisplayObject: DisplayObject
   rigidBody: RigidBody
   collider: Collider
 }
@@ -22,10 +20,8 @@ export type TriangleGameObject = {
   indices: Vec3
   vertices: Tuple3<Vec2>
   groupId: string
-  debugDisplayObject: DisplayObject
   sprite: DisplayObject
-  colliderDesc: ColliderDesc
-  rigidBodyDesc: RigidBodyDesc
+  debugDisplayObject: DisplayObject
   rigidBody: RigidBody
   collider: Collider
 }
@@ -33,11 +29,14 @@ export type TriangleGameObject = {
 export type GrenadeGameObject = {
   tag: 'grenade'
   sprite: DisplayObject
-  debugDisplayObject: DisplayObject
-  colliderDesc: ColliderDesc
-  rigidBodyDesc: RigidBodyDesc
+  debugDisplayObject?: DisplayObject
   rigidBody: RigidBody
   collider: Collider
+}
+
+export type Desc<G extends GameObject> = Omit<G, 'collider' | 'rigidBody'> & {
+  colliderDesc: ColliderDesc
+  rigidBodyDesc: RigidBodyDesc
 }
 
 export type GameObject = BoxGameObject | TriangleGameObject | GrenadeGameObject

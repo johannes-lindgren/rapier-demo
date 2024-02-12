@@ -1,4 +1,4 @@
-import { Filter, Renderer, RenderTexture, Texture } from 'pixi.js'
+import { Filter, IRenderer, RenderTexture, Texture } from 'pixi.js'
 import * as PIXI from 'pixi.js'
 import defaultVert from './default.vert?raw'
 import fragmentShader from './perlinNoise.frag?raw'
@@ -40,7 +40,7 @@ const perlins = (
 }
 
 export const createPerlinNoiseTexture = (
-  renderer: Renderer,
+  renderer: IRenderer,
   dimensions: Vector,
   whiteNoiseTexture: Texture,
 ): RenderTexture => {

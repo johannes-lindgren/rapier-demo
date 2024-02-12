@@ -14,6 +14,7 @@ import {
 import * as PIXI from 'pixi.js'
 import { Container, Graphics, Mesh, MIPMAP_MODES, Sprite } from 'pixi.js'
 import {
+  Desc,
   GameObject,
   GrenadeGameObject,
   TriangleGameObject,
@@ -34,9 +35,7 @@ import {
   antiClockWise90deg,
   centroid,
   clockwise90deg,
-  degrees,
   distSquared,
-  div,
   dot,
   down,
   fromAngle,
@@ -46,11 +45,9 @@ import {
   normalized1,
   normalized2,
   origo,
-  project,
   right,
   scale,
   sub,
-  sum,
   Tuple3,
   up,
   vec2,
@@ -334,7 +331,7 @@ const triangleMesh = (vertices: Tuple3<Vec2>, color: number) => {
 const createTriangle = (
   vertices: [Vec2, Vec2, Vec2],
   indices: Vec3,
-): Omit<TriangleGameObject, 'debugDisplayObject' | 'groupId'> => {
+): Omit<Desc<TriangleGameObject>, 'debugDisplayObject' | 'groupId'> => {
   const position = new Vector2(0, 0)
 
   const colliderDesc = ColliderDesc.convexPolyline(
@@ -379,16 +376,23 @@ const triangleGeometry = (vertices: [Vec2, Vec2, Vec2]) => {
 let gameObjects = [] as GameObject[]
 const groups = {} as Record<string, TriangleGameObject[]>
 
-const addGameObjects = (newObjs: GameObject[]) => {
+const addGameObjects = (descriptions: Desc<GameObject>[]) => {
+  const newObjs = descriptions.map((it) => {
+    const rigidBody = world.createRigidBody(it.rigidBodyDesc)
+    const collider = world.createCollider(it.colliderDesc, rigidBody)
+    const { colliderDesc, rigidBodyDesc, ...rest } = it
+    return {
+      ...rest,
+      rigidBody,
+      collider,
+    } as GameObject
+  })
   gameObjects = [...gameObjects, ...newObjs]
   newObjs.forEach((it) => {
     pixiWorld.addChild(it.sprite)
     if (debug.enabled && it.debugDisplayObject) {
       pixiWorld.addChild(it.debugDisplayObject)
     }
-    const ridigBody = world.createRigidBody(it.rigidBodyDesc)
-    it.rigidBody = ridigBody
-    it.collider = world.createCollider(it.colliderDesc, ridigBody)
     //   Indices
     if (it.tag === 'triangle') {
       if (!groups[it.groupId]) {
@@ -578,7 +582,7 @@ worldTriangles
         ...triangle,
         groupId,
         debugDisplayObject,
-      } as TriangleGameObject
+      } as Desc<TriangleGameObject>
     })
   })
   .forEach(addGameObjects)
@@ -677,7 +681,7 @@ let playerCollider = world.createCollider(
 const createGrenade = (options: {
   pos: Vec2
   dir: Vec2
-}): GrenadeGameObject => {
+}): Desc<GrenadeGameObject> => {
   const radius = 0.1
   const speed = 10
   // Create a dynamic rigid-body.
@@ -860,7 +864,7 @@ const updatePhysics = (dt: number) => {
   world.step(eventQueue)
 
   const trianglesHit = [] as TriangleGameObject[]
-  const handleCollision = (colliderHandle: number, forceMagniture: number) => {
+  const handleCollision = (colliderHandle: number, _forceMagniture: number) => {
     const gameObject = gameObjects.find(
       (it) => it.collider.handle === colliderHandle,
     )
@@ -943,7 +947,7 @@ const updatePhysics = (dt: number) => {
                     0,
                   )
                   // TODO save joint so that we can break it
-                  const joint = world.createImpulseJoint(
+                  world.createImpulseJoint(
                     params,
                     left.rigidBody,
                     right.rigidBody,

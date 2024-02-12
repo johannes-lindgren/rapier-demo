@@ -1,4 +1,4 @@
-import { Filter, Renderer, RenderTexture } from 'pixi.js'
+import { Filter, IRenderer, RenderTexture } from 'pixi.js'
 import * as PIXI from 'pixi.js'
 import noiseFrag from './whiteNoise.frag?raw'
 import { Vec4 } from './vec.ts'
@@ -9,7 +9,7 @@ const whiteNoiseFilter = (seed: Vec4) =>
   })
 
 export const createWhiteNoiseTexture = (
-  renderer: Renderer,
+  renderer: IRenderer,
   dimensions: {
     width: number
     height: number

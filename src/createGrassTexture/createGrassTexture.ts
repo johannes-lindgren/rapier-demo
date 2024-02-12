@@ -1,4 +1,4 @@
-import { Filter, Renderer, RenderTexture, Texture } from 'pixi.js'
+import { Filter, IRenderer, RenderTexture, Texture } from 'pixi.js'
 import * as PIXI from 'pixi.js'
 import defaultVert from '../default.vert?raw'
 import fragmentShader from './grassTexture.frag?raw'
@@ -16,7 +16,7 @@ const filter = (
   })
 
 export const createGrassTexture = (
-  renderer: Renderer,
+  renderer: IRenderer,
   dimensions: Vector,
   whiteNoiseTexture: Texture,
   threshold: number,
