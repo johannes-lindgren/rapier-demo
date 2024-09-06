@@ -70,6 +70,9 @@ import { findC } from './triangle.ts'
 import { createStats } from './createStats.ts'
 import { isNonEmpty, min } from './arrays.ts'
 
+console.log('Hello, toggle features by double clicking on number keys')
+console.log(`1: rotate camera`)
+
 /*
  * Configration
  */
@@ -86,8 +89,8 @@ const debugController = {
 
 // Map params
 // const seed = 11
-// const seed = Math.random()
-const seed = 110
+const seed = Math.random()
+// const seed = 110
 const thresholdFill = 0.55
 const thresholdHole = 0.3
 
@@ -109,8 +112,8 @@ const autoStepMaxHeight = playerRadius * 3
 const autoStepMinWidth = playerRadius * 0.1
 
 // Camera
-const rotateCamera = false
-const rotationDamping = 0.98 as number
+let rotateCamera = false
+const rotationDamping = 0.98
 
 /*
  * Init game
@@ -169,7 +172,7 @@ const handleResize = () => {
   const containerHeight = window.innerHeight
 
   // See 10 meters horizontally
-  const viewportWidth = debug.enabled ? 30 : 15
+  const viewportWidth = debug.enabled ? 30 : 20
 
   const scale = containerWidth / viewportWidth
   viewport.scale.set(scale, -scale)
@@ -1154,6 +1157,12 @@ const updatePhysics = (dt: number) => {
   if (clickEvents.has(Key.KeyS)) {
     shoot()
   }
+
+  // TMP "Feature flags": fun stuff
+  if(clickEvents.has(Key.Digit1)) {
+    rotateCamera = !rotateCamera
+  }
+
   // Camera
   cameraAngle = rotateCamera
     ? rotationDamping * cameraAngle +
@@ -1163,7 +1172,7 @@ const updatePhysics = (dt: number) => {
   pixiWorld.position.set(-playerPosition.x, -playerPosition.y)
 }
 
-let cameraAngle = rotationDamping === 1 ? 0 : spawn.angle - Math.PI / 2
+let cameraAngle = spawn.angle - Math.PI / 2
 let timeSinceLastTick = 0
 const physicsDt = 1 / 60
 const maxDt = physicsDt * 4
