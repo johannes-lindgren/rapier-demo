@@ -104,6 +104,7 @@ const clawForce = 30
 const maxClimbAngle = 180
 const minSlideAngle = 20
 const walkK = 0.24
+const jumpK = 1
 const autoStepMaxHeight = playerRadius * 3
 const autoStepMinWidth = playerRadius * 0.1
 
@@ -688,10 +689,10 @@ const createGrenade = (options: {
   const rigidBodyDesc = RigidBodyDesc.dynamic()
     .setTranslation(...add(options.pos, scale(options.dir, radius)))
     .setLinvel(...scale(options.dir, speed))
-    .setGravityScale(0)
+    .setGravityScale(1)
 
   // Create a ball collider attached to the dynamic rigidBody.
-  const colliderDesc = ColliderDesc.ball(radius)
+  const colliderDesc = ColliderDesc.ball(radius).setMass(10)
 
   const sprite = new PIXI.Graphics()
   sprite.beginFill(0xff0000)
@@ -718,13 +719,14 @@ const shoot = throttle(
   1000,
   { trailing: false },
 )
-// const jump = throttle(
-//   (direction: Vec2) => {
-//     playerBody.applyImpulse(vecXy(scale(direction, jumpK)), true)
-//   },
-//   1000,
-//   { trailing: false },
-// )
+const jump = throttle(
+  () => {
+    const dir = fromAngle(playerBody.rotation())
+    playerBody.applyImpulse(vecXy(scale(dir, jumpK)), true)
+  },
+  1000,
+  { trailing: false },
+)
 
 /*
  * End of world spawn
@@ -862,6 +864,7 @@ const updatePhysics = (dt: number) => {
   let eventQueue = new EventQueue(true)
   // Step the simulation forward.
   world.step(eventQueue)
+  const clickEvents = drainEventQueue()
 
   const trianglesHit = [] as TriangleGameObject[]
   const handleCollision = (colliderHandle: number, _forceMagniture: number) => {
@@ -1007,7 +1010,8 @@ const updatePhysics = (dt: number) => {
       ? normalized2(neg(centroid(...senses.map((it) => scale(it.dir, it.toi)))))
       : undefined
 
-  if (isNonEmpty(senses)) {
+  const isOnWall = isNonEmpty(senses)
+  if (isOnWall) {
     playerBody.setGravityScale(0, false)
     playerBody.setLinearDamping(3)
 
@@ -1121,6 +1125,11 @@ const updatePhysics = (dt: number) => {
         dot(surfaceNormal, fromAngle(playerAngle + Math.PI / 2)) * 0.01
       playerBody.applyTorqueImpulse(springTorque, true)
     }
+
+    // You can only jump if you are on the ground
+    if (clickEvents.has(Key.KeyW)) {
+      jump()
+    }
     // }
   } else {
     playerBody.setGravityScale(1, false)
@@ -1142,7 +1151,6 @@ const updatePhysics = (dt: number) => {
     }
   }
   // Shoot
-  const clickEvents = drainEventQueue()
   if (clickEvents.has(Key.KeyS)) {
     shoot()
   }

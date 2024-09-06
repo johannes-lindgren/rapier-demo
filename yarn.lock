@@ -1610,10 +1610,8 @@ vitest@^1.2.1:
     vite-node "1.2.1"
     why-is-node-running "^2.2.2"
 
-"wasm-lib@workspace:*":
+"wasm-lib@file:./wasm-lib/pkg":
   version "0.1.0"
-  resolved "https://registry.yarnpkg.com/wasm-lib/-/wasm-lib-0.1.0.tgz#238a24a0ba00271d8f084e1b7d55f917b50dd282"
-  integrity sha512-B7g3n8niW8uPtMcZy9QbwtBhebwzcbBy0fLYpXkcDavQoRAM/njJYK134bEHCdD0UjIGjr/1r2v/sSyQWLvlVg==
 
 wasm-pack@^0.13.0:
   version "0.13.0"
