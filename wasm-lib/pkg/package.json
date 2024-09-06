@@ -1,0 +1,26 @@
+{
+  "name": "wasm-lib",
+  "type": "module",
+  "collaborators": [
+    "Johannes Lindgren <14206504+johannes-lindgren@users.noreply.github.com>"
+  ],
+  "description": "A sample project with wasm-pack",
+  "version": "0.1.0",
+  "license": "MIT/Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourgithubusername/hello-wasm"
+  },
+  "files": [
+    "wasm_lib_bg.wasm",
+    "wasm_lib.js",
+    "wasm_lib_bg.js",
+    "wasm_lib.d.ts"
+  ],
+  "main": "wasm_lib.js",
+  "types": "wasm_lib.d.ts",
+  "sideEffects": [
+    "./wasm_lib.js",
+    "./snippets/*"
+  ]
+}
