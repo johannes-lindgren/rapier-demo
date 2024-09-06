@@ -10,8 +10,11 @@
     "build": "vite build",
     "preview": "vite preview"
   },
-  "workspaces": ["wasm-lib/pkg"],
+  "workspaces": [
+    "wasm-lib/pkg"
+  ],
   "dependencies": {
+    "wasm-lib": "workspace:*",
     "triangle-wasm": "^1.0.0",
     "@dimforge/rapier2d": "^0.11.2",
     "pixi.js": "7.3.3",

@@ -1,3 +1,4 @@
-pkg/
+# Commented out so that you don't need Rust to build this project
+#pkg/
 target/
 .idea/
