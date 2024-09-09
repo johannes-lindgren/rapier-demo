@@ -1,3 +1,5 @@
+⚠️ This is a PoC that I hacked together: the code is not pretty. You have been warned.
+
 # Rockspinner Rampage
 
 1. Ensure that you have Rust installed 
